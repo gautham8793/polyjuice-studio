@@ -4,7 +4,7 @@ import { sceneStarts } from "../../remotion/src/templates/SceneVideo";
 import type { Brand, Project, Scene } from "../../remotion/src/types";
 import { CharactersPanel } from "./CharactersPanel";
 import { scenePrompt } from "./prompts";
-import { api, type CharacterLibrary, type LoadedProject, type LoadedWorkspace, type ProjectSummary, type RenderJob, type Workspace } from "./api";
+import { api, type CharacterLibrary, type LoadedProject, type ProjectSummary, type RenderJob, type TeamUpdate, type Workspace } from "./api";
 import { Preview } from "./Preview";
 import { SceneCard } from "./SceneCard";
 import { SearchModal } from "./SearchModal";
@@ -14,7 +14,9 @@ import { ChannelPanel } from "./ChannelPanel";
 import { ThemePanel } from "./ThemePanel";
 import { previewTimeline } from "./timeline";
 import { ScriptPanel } from "./ScriptPanel";
-import { setProjectEntry, Sidebar, STAGE_LABEL, stageOf } from "./Sidebar";
+import { Sidebar, STAGE_LABEL, stageOf } from "./Sidebar";
+import { hasRole, type Member } from "./team";
+import { TeamPanel, WhoAreYou } from "./TeamPanel";
 
 type SaveState = "saved" | "unsaved" | "saving" | "error";
 type Log = { title: string; text: string; ok: boolean } | null;
@@ -34,7 +36,11 @@ export const App: React.FC = () => {
   const [render, setRender] = useState<RenderJob>(null);
   const [log, setLog] = useState<Log>(null);
   const [tab, setTab] = useState<"scenes" | "script" | "publish">("scenes");
-  const [workspace, setWorkspace] = useState<LoadedWorkspace>({ folders: [], projects: {}, user: "" });
+  const [workspace, setWorkspace] = useState<Workspace>({ folders: [], projects: {} });
+  const [me, setMe] = useState<Member | null>(null);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [teamOpen, setTeamOpen] = useState(false);
+  const loadMe = useCallback(() => api.me().then((r) => { setMe(r.me); setMembers(r.members); }).catch(() => {}), []);
   const [characterLib, setCharacterLib] = useState<CharacterLibrary | null>(null);
   useEffect(() => {
     api.characters().then(setCharacterLib).catch(() => setCharacterLib(null));
@@ -46,8 +52,9 @@ export const App: React.FC = () => {
   const refreshList = useCallback(() => api.listProjects().then(setProjects), []);
   useEffect(() => {
     refreshList();
+    loadMe();
     api.getWorkspace().then(setWorkspace).catch(() => {});
-  }, [refreshList]);
+  }, [refreshList, loadMe]);
 
   const updateWorkspace = async (update: (ws: Workspace) => Workspace) => {
     setWorkspace((w) => ({ ...w, ...update(w) }));
@@ -55,7 +62,7 @@ export const App: React.FC = () => {
       // Apply the change to the file's latest state: another tab or dashboard may have changed it.
       setWorkspace(await api.saveWorkspace(update(await api.getWorkspace())));
     } catch (e) {
-      setLog({ title: "Folders", text: `Couldn't save projects/_workspace.json: ${e}`, ok: false });
+      setLog({ title: "Folders", text: `Couldn't save workspace.json: ${e}`, ok: false });
       api.getWorkspace().then(setWorkspace).catch(() => {});
     }
   };
@@ -215,8 +222,21 @@ export const App: React.FC = () => {
   const filled = project?.scenes.filter((s) => s.kind !== "outro" && s.visual.asset).length ?? 0;
   const total = project?.scenes.filter((s) => s.kind !== "outro").length ?? 0;
   const summary = projects.find((p) => p.slug === slug);
-  const stage = summary ? stageOf(summary, workspace) : null;
-  const uploadedAt = slug ? workspace.projects[slug]?.uploadedAt : undefined;
+  const stage = summary ? stageOf(summary) : null;
+  const uploadedAt = summary?.uploadedAt;
+
+  // Review, approval and team changes go through their own endpoints (one concern per file).
+  const teamAction = async (action: Promise<TeamUpdate>) => {
+    try {
+      const { review, team } = await action;
+      setLoaded((l) => (l ? { ...l, review, team } : l));
+      refreshList();
+    } catch (e) {
+      setLog({ title: "Team", text: String(e instanceof Error ? e.message : e), ok: false });
+    }
+  };
+  const owner = members.find((m) => m.id === loaded?.team.owner);
+  const canHandOver = !!me && (hasRole(me, "admin") || !loaded?.team.owner || loaded.team.owner === me.id);
 
   return (
     <div className="app">
@@ -224,7 +244,19 @@ export const App: React.FC = () => {
         <div className="brand-mark">
           <span className="dot" /> Video Studio
         </div>
-        <Sidebar projects={projects} workspace={workspace} active={slug} onWorkspace={updateWorkspace} />
+        <Sidebar
+          projects={projects}
+          workspace={workspace}
+          active={slug}
+          members={members}
+          onUploaded={(s, on) => teamAction(api.setUploaded(s, on))}
+          onWorkspace={updateWorkspace}
+        />
+        <button className="team-button" onClick={() => setTeamOpen(true)}>
+          <span className="avatar">{me?.name.slice(0, 1) ?? "?"}</span>
+          <span>{me ? me.name : "Who are you?"}</span>
+          <span className="muted small">Team &amp; activity</span>
+        </button>
         <div className="sidebar-hint">
           New video: ask Claude Code <code>/new-video &lt;topic&gt;</code>
         </div>
@@ -252,6 +284,21 @@ export const App: React.FC = () => {
                       {summary.review.changes} script change{summary.review.changes > 1 ? "s" : ""} requested
                     </button>
                   )}
+                  {canHandOver && members.length > 1 ? (
+                    <label className="chip owner-select">
+                      Owner
+                      <select
+                        value={loaded.team.owner ?? ""}
+                        onChange={(e) => teamAction(api.setOwner(slug!, e.target.value))}
+                        aria-label="Video owner"
+                      >
+                        {!loaded.team.owner && <option value="">No owner</option>}
+                        {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                      </select>
+                    </label>
+                  ) : (
+                    <span className="chip">Owner: {owner?.name ?? "none"}</span>
+                  )}
                   <span className="chip">{project.template}</span>
                   <span className="chip">{project.style}</span>
                   <span className="chip">{filled}/{total} images</span>
@@ -259,7 +306,7 @@ export const App: React.FC = () => {
                   {(stage === "exported" || stage === "uploaded") && (
                     <button
                       className="link inline small"
-                      onClick={() => updateWorkspace((w) => setProjectEntry(w, slug!, { uploadedAt: uploadedAt ? undefined : new Date().toISOString() }))}
+                      onClick={() => teamAction(api.setUploaded(slug!, !uploadedAt))}
                       title={uploadedAt ? `Marked uploaded ${new Date(uploadedAt).toLocaleDateString()}` : undefined}
                     >
                       {uploadedAt ? "Unmark uploaded" : "Mark as uploaded"}
@@ -325,7 +372,17 @@ export const App: React.FC = () => {
               {tab === "publish" ? (
                 <PublishPanel project={project} research={loaded.research} slug={slug!} job={render} onChange={updateProject} onPublished={() => api.getWorkspace().then(setWorkspace)} />
               ) : tab === "script" ? (
-                <ScriptPanel project={project} timeline={preview.timeline} stale={stale} user={workspace.user} onChange={updateProject} />
+                <ScriptPanel
+                  project={project}
+                  timeline={preview.timeline}
+                  stale={stale}
+                  review={loaded.review}
+                  team={loaded.team}
+                  me={me}
+                  members={members}
+                  onReview={(scene, status, comment) => teamAction(api.reviewScene(slug!, scene, status, comment))}
+                  onApprove={(approve) => teamAction(api.approveScript(slug!, approve))}
+                />
               ) : (
               <section className="scenes" aria-label="Scenes">
                 {brand && (
@@ -387,6 +444,19 @@ export const App: React.FC = () => {
           </>
         )}
       </main>
+
+      {teamOpen && (
+        <TeamPanel
+          me={me}
+          members={members}
+          onMembers={setMembers}
+          onSwitch={async (id) => { await api.setMe(id); loadMe(); }}
+          onOpenProject={(s) => { setTeamOpen(false); location.hash = `/${s}`; }}
+          onClose={() => setTeamOpen(false)}
+          titles={Object.fromEntries(projects.map((p) => [p.slug, p.title]))}
+        />
+      )}
+      {!me && members.length > 0 && <WhoAreYou members={members} onPick={async (id) => { await api.setMe(id); loadMe(); }} />}
 
       {searchFor && slug && (
         <SearchModal

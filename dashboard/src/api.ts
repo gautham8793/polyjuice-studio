@@ -1,6 +1,6 @@
 import type { Brand, Project, Timeline } from "../../remotion/src/types";
-import type { ReviewSummary } from "./review";
-import type { Workspace } from "../server/api";
+import type { ReviewFile, ReviewSummary } from "./review";
+import type { Activity, Member, Team, Workspace } from "./team";
 import type { InstagramStatus, PublishJob } from "../server/instagram";
 
 export type { InstagramStatus, PublishJob, Workspace };
@@ -16,7 +16,6 @@ export type InstagramPreflight = {
   seconds?: number;
   job: PublishJob | null;
 };
-export type LoadedWorkspace = Workspace & { user: string };
 
 export type ProjectSummary = {
   slug: string;
@@ -32,6 +31,8 @@ export type ProjectSummary = {
   needsVoice: number; // scenes whose voice is missing or out of date
   exportedAt: number | null; // mtime of out/<slug>/<slug>.mp4
   review: ReviewSummary;
+  owner: string | null; // member id
+  uploadedAt: string | null; // first YouTube / Instagram publish in team.json
 };
 
 export type LoadedProject = {
@@ -41,7 +42,11 @@ export type LoadedProject = {
   timeline: Timeline | null;
   research: string | null;
   version: number;
+  review: ReviewFile;
+  team: Team;
 };
+
+export type TeamUpdate = { review: ReviewFile; team: Team };
 
 export type SearchResult = {
   id: string;
@@ -77,9 +82,20 @@ const post = (body?: unknown): RequestInit =>
 
 export const api = {
   listProjects: () => call<ProjectSummary[]>("/api/projects"),
-  getWorkspace: () => call<LoadedWorkspace>("/api/workspace"),
+  me: () => call<{ me: Member | null; members: Member[] }>("/api/me"),
+  setMe: (member: string) => call<{ me: Member }>("/api/me", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ member }) }),
+  saveMembers: (members: Member[]) =>
+    call<{ members: Member[] }>("/api/members", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ members }) }),
+  activity: (project?: string, limit = 50) =>
+    call<Activity[]>(`/api/activity?limit=${limit}${project ? `&project=${encodeURIComponent(project)}` : ""}`),
+  reviewScene: (slug: string, scene: string, status: "approved" | "changes" | null, comment?: string) =>
+    call<TeamUpdate>(`/api/projects/${slug}/review`, post({ scene, status, comment })),
+  approveScript: (slug: string, approve: boolean) => call<TeamUpdate>(`/api/projects/${slug}/approve`, post({ approve })),
+  setOwner: (slug: string, owner: string) => call<TeamUpdate>(`/api/projects/${slug}/team`, post({ owner })),
+  setUploaded: (slug: string, uploaded: boolean) => call<TeamUpdate>(`/api/projects/${slug}/team`, post({ uploaded })),
+  getWorkspace: () => call<Workspace>("/api/workspace"),
   saveWorkspace: (ws: Workspace) =>
-    call<LoadedWorkspace>("/api/workspace", {
+    call<Workspace>("/api/workspace", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(ws),

@@ -1,13 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import type { Project, Scene, Timeline } from "../../remotion/src/types";
-import { reviewSummary, sceneHash, sceneReviewState, scriptHash, type SceneReviewState } from "./review";
+import { memberSceneState, reviewSummary, sceneReviewState, type ReviewFile, type SceneReviewState } from "./review";
+import { canApproveScript, type Member, type Team } from "./team";
 
 type Props = {
   project: Project;
   timeline: Timeline; // preview timeline: real durations where voiced, estimates elsewhere
   stale: Set<string>;
-  user: string;
-  onChange: (p: Project) => void;
+  review: ReviewFile;
+  team: Team;
+  me: Member | null;
+  members: Member[];
+  onReview: (scene: string, status: "approved" | "changes" | null, comment?: string) => void;
+  onApprove: (approve: boolean) => void;
 };
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
@@ -60,7 +65,7 @@ const STATE_LABEL: Record<SceneReviewState, string> = {
   edited: "Edited since review",
 };
 
-export const ScriptPanel: React.FC<Props> = ({ project, timeline, stale, user, onChange }) => {
+export const ScriptPanel: React.FC<Props> = ({ project, timeline, stale, review, team, me, members, onReview, onApprove }) => {
   const [editing, setEditing] = useState<string | null>(null); // scene id with the comment box open
   const [draft, setDraft] = useState("");
   const [playing, setPlaying] = useState<string | null>(null);
@@ -70,29 +75,11 @@ export const ScriptPanel: React.FC<Props> = ({ project, timeline, stale, user, o
   const durations = new Map(timeline.scenes.map((t) => [t.id, t.duration + (t.hold ?? 0)]));
   const total = [...durations.values()].reduce((a, b) => a + b, 0);
   const words = project.scenes.reduce((n, s) => n + s.narration.split(/\s+/).filter(Boolean).length, 0);
-  const summary = reviewSummary(project);
-  const review = project.review ?? {};
-  const now = () => new Date().toISOString();
-
-  const setScene = (scene: Scene, status: "approved" | "changes" | null, comment?: string) => {
-    const scenes = { ...review.scenes };
-    if (status) scenes[scene.id] = { status, hash: sceneHash(scene), at: now(), ...(comment ? { comment } : {}) };
-    else delete scenes[scene.id];
-    // A change request (or clearing a scene) withdraws the whole-script approval.
-    const { approvedAt, approvedBy, scriptHash: h, ...rest } = review;
-    onChange({ ...project, review: status === "approved" ? { ...review, scenes } : { ...rest, scenes } });
-  };
-
-  const approveScript = () => {
-    const scenes = { ...review.scenes };
-    for (const s of project.scenes)
-      if (sceneReviewState(project, s) !== "approved") scenes[s.id] = { status: "approved", hash: sceneHash(s), at: now() };
-    onChange({ ...project, review: { scenes, approvedAt: now(), approvedBy: user, scriptHash: scriptHash(project) } });
-  };
-  const revoke = () => {
-    const { approvedAt, approvedBy, scriptHash: h, ...rest } = review;
-    onChange({ ...project, review: rest });
-  };
+  const summary = reviewSummary(project, review);
+  const name = (id: string) => members.find((m) => m.id === id)?.name ?? id;
+  const ownerName = team.owner ? name(team.owner) : null;
+  const mayApprove = canApproveScript(me, team);
+  const approval = review.approval;
 
   const play = (id: string, src: string) => {
     audio.current?.pause();
@@ -114,40 +101,45 @@ export const ScriptPanel: React.FC<Props> = ({ project, timeline, stale, user, o
             {summary.approved}/{summary.total} approved
             {summary.changes > 0 && <span className="warn-text"> · {summary.changes} change{summary.changes > 1 ? "s" : ""} requested</span>}
           </div>
-          {summary.state === "approved" && (
+          {summary.state === "approved" && approval && (
             <div className="muted small">
-              Approved by {review.approvedBy} · {new Date(review.approvedAt!).toLocaleString()} · version <code>{review.scriptHash}</code>
+              Approved by {name(approval.by)} · {new Date(approval.at).toLocaleString()} · version <code>{approval.scriptHash}</code>
             </div>
           )}
-          {summary.state === "stale" && (
+          {summary.state === "stale" && approval && (
             <div className="warn-text small">
-              Narration changed after {review.approvedBy} approved it ({new Date(review.approvedAt!).toLocaleString()}). Re-approve when it reads right.
+              Narration changed after {name(approval.by)} approved it ({new Date(approval.at).toLocaleString()}). The owner re-approves when it reads right.
             </div>
           )}
-        </div>
-        <div className="actions">
-          {(summary.state === "approved" || summary.state === "stale") && (
-            <button className="btn small ghost" onClick={revoke}>Revoke</button>
-          )}
-          {summary.state !== "approved" && (
-            <button
-              className="btn primary"
-              onClick={approveScript}
-              disabled={summary.changes > 0}
-              title={summary.changes ? "Resolve the requested changes first" : "Approves every scene and records this version of the script"}
-            >
-              {summary.state === "stale" ? "Re-approve script" : "Approve script"}
-            </button>
+          {!mayApprove && summary.state !== "approved" && (
+            <div className="muted small">{ownerName ? `${ownerName} owns this video and approves the script.` : "No owner yet: an admin approves the script."}</div>
           )}
         </div>
+        {mayApprove && (
+          <div className="actions">
+            {approval && <button className="btn small ghost" onClick={() => onApprove(false)}>Revoke</button>}
+            {summary.state !== "approved" && (
+              <button
+                className="btn primary"
+                onClick={() => onApprove(true)}
+                disabled={summary.changes > 0}
+                title={summary.changes ? "Resolve the requested changes first" : "Approves every scene and records this version of the script"}
+              >
+                {summary.state === "stale" ? "Re-approve script" : "Approve script"}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {project.scenes.map((scene, i) => {
         const d = durations.get(scene.id) ?? 0;
         const at = start;
         start += d;
-        const state = sceneReviewState(project, scene);
-        const r = review.scenes?.[scene.id];
+        const state = sceneReviewState(review, scene);
+        const mine: SceneReviewState = me ? memberSceneState(review, scene, me.id) : "pending";
+        const myReview = me ? review.scenes[scene.id]?.[me.id] : undefined;
+        const others = Object.entries(review.scenes[scene.id] ?? {});
         const t = timeline.scenes.find((x) => x.id === scene.id);
         const labels = labelsOf(scene);
         return (
@@ -165,12 +157,22 @@ export const ScriptPanel: React.FC<Props> = ({ project, timeline, stale, user, o
             </header>
             {scene.narration.trim() ? <Narration text={scene.narration} cues={cuesOf(scene)} /> : <p className="muted script-text silent">(no narration)</p>}
             {labels.length > 0 && <p className="script-labels">On screen: {labels.join(" · ")}</p>}
-            {r?.comment && (state === "changes" || state === "edited") && (
-              <p className={`script-comment ${state}`}>
-                {state === "edited" ? "Earlier request: " : ""}“{r.comment}”
-              </p>
+            {others.length > 0 && (
+              <div className="reviewers">
+                {others.map(([id, r]) => {
+                  const st = memberSceneState(review, scene, id);
+                  return (
+                    <div key={id} className={`reviewer ${st}`}>
+                      <span className="reviewer-name">{st === "approved" ? "✓" : st === "changes" ? "✎" : "↻"} {name(id)}</span>
+                      {r.comment && (st === "changes" || st === "edited") && (
+                        <span className="reviewer-comment">{st === "edited" ? "earlier: " : ""}“{r.comment}”</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             )}
-            {editing === scene.id ? (
+            {!me ? null : editing === scene.id ? (
               <div className="script-request">
                 <textarea
                   autoFocus
@@ -182,18 +184,18 @@ export const ScriptPanel: React.FC<Props> = ({ project, timeline, stale, user, o
                 />
                 <div className="actions">
                   <button className="btn small" onClick={() => setEditing(null)}>Cancel</button>
-                  <button className="btn small primary" disabled={!draft.trim()} onClick={() => { setScene(scene, "changes", draft.trim()); setEditing(null); }}>
+                  <button className="btn small primary" disabled={!draft.trim()} onClick={() => { onReview(scene.id, "changes", draft.trim()); setEditing(null); }}>
                     Request change
                   </button>
                 </div>
               </div>
             ) : (
               <div className="script-actions">
-                {state !== "approved" && <button className="btn small" onClick={() => setScene(scene, "approved")}>✓ Approve</button>}
-                <button className="btn small ghost" onClick={() => { setDraft(r?.status === "changes" ? r.comment ?? "" : ""); setEditing(scene.id); }}>
-                  {state === "changes" ? "Edit request" : "Request change"}
+                {mine !== "approved" && <button className="btn small" onClick={() => onReview(scene.id, "approved")}>✓ Approve</button>}
+                <button className="btn small ghost" onClick={() => { setDraft(myReview?.status === "changes" ? myReview.comment ?? "" : ""); setEditing(scene.id); }}>
+                  {mine === "changes" ? "Edit my request" : "Request change"}
                 </button>
-                {state !== "pending" && <button className="btn small ghost" onClick={() => setScene(scene, null)}>Clear</button>}
+                {mine !== "pending" && <button className="btn small ghost" onClick={() => onReview(scene.id, null)}>Clear mine</button>}
               </div>
             )}
           </article>

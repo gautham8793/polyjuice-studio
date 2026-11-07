@@ -365,3 +365,38 @@ select:focus { outline: none; border-color: var(--accent); }
 .confirm-box .post-text { max-height: 220px; overflow: auto; }
 .spinner { display: inline-block; width: 10px; height: 10px; border: 2px solid var(--muted); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: -1px; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Team: identity, owner, members, activity, per-member reviews */
+.avatar { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--panel-2); border: 1px solid var(--border); font-size: 12px; font-weight: 700; color: var(--accent); flex: none; }
+.avatar.small { width: 20px; height: 20px; font-size: 11px; }
+.team-button { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 10px; align-items: center; text-align: left; background: none; border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; cursor: pointer; }
+.team-button:hover { border-color: var(--accent); }
+.team-button .avatar { grid-row: span 2; }
+.team-button > span:nth-child(2) { font-weight: 650; font-size: 13px; }
+.owner-chip { font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 0 6px; }
+.owner-select, .who-switch { display: inline-flex; flex-direction: row; align-items: center; gap: 6px; }
+.owner-select select { background: transparent; border: none; color: var(--text); font-size: 12px; font-weight: 650; cursor: pointer; padding: 0; width: auto; flex: none; }
+.team-modal { width: min(640px, 100%); padding: 18px 20px; gap: 18px; overflow-y: auto; }
+.team-modal h2 { margin: 0; font-size: 18px; }
+.team-modal h3 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+.who-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.who-list .btn { display: inline-flex; align-items: center; gap: 8px; }
+.who-switch { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; }
+.who-switch select { width: auto; flex: none; }
+.who-switch select, .members-add input { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; }
+.members-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.members-table th { text-align: center; font-weight: 600; color: var(--muted); font-size: 12px; padding: 4px; }
+.members-table th:first-child, .members-table td:first-child { text-align: left; }
+.members-table td { padding: 6px 4px; border-top: 1px solid var(--border); text-align: center; }
+.members-table td:first-child { display: flex; align-items: center; gap: 8px; }
+.members-add { display: flex; gap: 8px; margin-top: 10px; }
+.members-add input { flex: 1; }
+.activity-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.activity-list li { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: start; }
+.reviewers { display: flex; flex-direction: column; gap: 4px; margin: 0 0 10px; }
+.reviewer { font-size: 13px; display: flex; gap: 8px; flex-wrap: wrap; }
+.reviewer-name { font-weight: 650; color: var(--muted); }
+.reviewer.approved .reviewer-name { color: var(--ok); }
+.reviewer.changes .reviewer-name { color: var(--warn); }
+.reviewer-comment { color: var(--text); }
+.reviewer.edited .reviewer-comment { opacity: 0.7; }

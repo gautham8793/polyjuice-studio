@@ -4,13 +4,15 @@ import { spawn } from "node:child_process";
 import { createReadStream, existsSync } from "node:fs";
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { tmpdir, userInfo } from "node:os";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import type { Plugin } from "vite";
 import { compositionFor } from "../../remotion/src/templates/SceneVideo";
 import { buildPublish, type MusicCredit } from "../src/publish";
 import { contentRoot, python, remotionCli, reveal } from "./paths";
+import { handleTeamApi, logActivity, readMe, readReview, readTeam, writeTeam } from "./team";
 import { reviewSummary } from "../src/review";
+import { uploadedAt } from "../src/team";
 import { connectInstagram, disconnectInstagram, GraphError, instagramStatus, prepareReel, publishReel, type PublishJob } from "./instagram";
 import { previewTimeline } from "../src/timeline";
 
@@ -30,11 +32,6 @@ const MIME: Record<string, string> = {
 };
 const VOICE_ID = /^([a-z]{2}_[a-z]+|en-IN-Chirp3-HD-[A-Za-z]+)$/; // Kokoro or Google Indian English
 
-// projects/_workspace.json: sidebar folders and the one status that can't be derived (uploaded).
-export type Workspace = {
-  folders: { id: string; name: string }[];
-  projects: Record<string, { folder?: string; uploadedAt?: string; url?: string; instagram?: Published }>;
-};
 // Written by the server after a successful publish; the browser can't set or clear it.
 export type Published = { id: string; url: string; at: string };
 
@@ -83,33 +80,8 @@ async function handleApi(
     return json(res, 200, await listProjects(root));
   }
 
-  if (parts[0] === "workspace" && parts.length === 1) {
-    if (method === "GET") return json(res, 200, { ...(await readWorkspace(root)), user: userInfo().username });
-    if (method === "PUT") {
-      const body = JSON.parse((await readBody(req)).toString("utf8"));
-      if (!Array.isArray(body?.folders) || typeof body.projects !== "object") return json(res, 400, { error: "bad workspace" });
-      const ids = new Set<string>();
-      const current = await readWorkspace(root);
-      const ws: Workspace = { folders: [], projects: {} };
-      for (const f of body.folders) {
-        if (!SLUG.test(String(f.id)) || ids.has(f.id) || !String(f.name ?? "").trim()) return json(res, 400, { error: "bad folder" });
-        ids.add(f.id);
-        ws.folders.push({ id: f.id, name: String(f.name).trim().slice(0, 60) });
-      }
-      for (const [slug, p] of Object.entries<Workspace["projects"][string]>(body.projects)) {
-        if (!SLUG.test(slug)) continue;
-        const entry = {
-          ...(p.folder && ids.has(p.folder) ? { folder: p.folder } : {}),
-          ...(p.uploadedAt ? { uploadedAt: String(p.uploadedAt) } : {}),
-          ...(p.url ? { url: String(p.url) } : {}),
-          ...(current.projects[slug]?.instagram ? { instagram: current.projects[slug].instagram } : {}),
-        };
-        if (Object.keys(entry).length) ws.projects[slug] = entry;
-      }
-      await writeJson(path.join(contentRoot(root), "projects", "_workspace.json"), ws);
-      return json(res, 200, { ...ws, user: userInfo().username });
-    }
-  }
+  // Team files: me, members, folders, activity, and per-project review / approval / team
+  if (await handleTeamApi(root, req, res, url, parts, async () => JSON.parse((await readBody(req)).toString("utf8")))) return;
 
   // Brand & theme library: brand/brand.json
   if (parts[0] === "brand" && parts.length === 1) {
@@ -261,6 +233,8 @@ async function handleApi(
   if (action === "voice" && method === "POST") {
     const r = await run(python(root), ["tools/prepare.py", slug], root);
     const log = r.out.split("\n").filter((l) => /^s\d+:|wrote|Error|error:/.test(l)).join("\n");
+    const me = await readMe(root);
+    if (r.code === 0 && me) await logActivity(root, { by: me.id, project: slug, type: "voice.generated" });
     return json(res, r.code === 0 ? 200 : 500, { ok: r.code === 0, log: log || r.out.slice(-2000) });
   }
 
@@ -386,15 +360,12 @@ async function listProjects(root: string) {
       series: project.series?.name ?? null,
       needsVoice: previewTimeline(project, timeline).stale.length,
       exportedAt: existsSync(video) ? (await stat(video)).mtimeMs : null,
-      review: reviewSummary(project),
+      review: reviewSummary(project, await readReview(root, d.name)),
+      owner: (await readTeam(root, d.name)).owner ?? null,
+      uploadedAt: uploadedAt(await readTeam(root, d.name)),
     });
   }
   return out.sort((a, b) => b.modified - a.modified);
-}
-
-async function readWorkspace(root: string): Promise<Workspace> {
-  const p = path.join(contentRoot(root), "projects", "_workspace.json");
-  return existsSync(p) ? JSON.parse(await readFile(p, "utf8")) : { folders: [], projects: {} };
 }
 
 async function loadCharacters(root: string) {
@@ -458,6 +429,8 @@ async function loadProject(root: string, slug: string) {
     version: await projectVersion(dir),
     timeline: timeline ? JSON.parse(timeline) : null,
     research: await read("research.md"),
+    review: await readReview(root, slug),
+    team: await readTeam(root, slug),
   };
 }
 
@@ -514,6 +487,8 @@ function startRender(root: string, slug: string) {
     if (text.pinnedComment) await writeFile(path.join(root, folder, "pinned-comment.txt"), `${text.pinnedComment}\n`);
     await writeJson(path.join(root, folder, "metadata.json"), { exportedAt: new Date().toISOString(), ...text });
 
+    const me = await readMe(root);
+    if (me) await logActivity(root, { by: me.id, project: slug, type: "export.done" });
     job.status = "done";
     job.stage = "Done";
     job.progress = 1;
@@ -530,7 +505,7 @@ function startRender(root: string, slug: string) {
 async function instagramPreflight(root: string, slug: string) {
   const video = path.join(root, "out", slug, `${slug}.mp4`);
   const captionFile = path.join(root, "out", slug, "instagram.txt");
-  const published = (await readWorkspace(root)).projects[slug]?.instagram ?? null;
+  const published = ((await readTeam(root, slug)).published?.instagram ?? null) as Published | null;
   const blockers: string[] = [];
   const warnings: string[] = [];
   if (!existsSync(video) || !existsSync(captionFile)) {
@@ -572,10 +547,11 @@ function startInstagramPublish(root: string, slug: string, video: string, captio
   (async () => {
     // The cover is the same frame as cover.png (frame 60 at 30 fps).
     const { mediaId, permalink } = await publishReel(root, { video, caption, coverMs: 2000, name: `${slug}-${Date.now()}.mp4` }, job);
-    const ws = await readWorkspace(root);
-    const entry = ws.projects[slug] ?? {};
-    ws.projects[slug] = { ...entry, uploadedAt: entry.uploadedAt ?? new Date().toISOString(), instagram: { id: mediaId, url: permalink, at: new Date().toISOString() } };
-    await writeJson(path.join(contentRoot(root), "projects", "_workspace.json"), ws);
+    const team = await readTeam(root, slug);
+    const by = (await readMe(root))?.id;
+    team.published = { ...team.published, instagram: { id: mediaId, url: permalink, at: new Date().toISOString(), ...(by ? { by } : {}) } };
+    await writeTeam(root, slug, team);
+    if (by) await logActivity(root, { by, project: slug, type: "instagram.posted" });
     Object.assign(job, { status: "done", stage: "Posted", mediaId, permalink });
   })().catch((err) => {
     Object.assign(job, { status: "error", stage: "Failed", error: err instanceof Error ? err.message : String(err) });

@@ -4,6 +4,9 @@
 /projects/
 /library/
 /brand/
+/members.json
+/workspace.json
+/activity/
 
 # Local only: renders, machine state, keys
 /out/

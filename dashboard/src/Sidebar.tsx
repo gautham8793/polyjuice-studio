@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ProjectSummary, Workspace } from "./api";
+import type { Member } from "./team";
 
 // Draft → Script approved → Voiced → Exported → Uploaded. All derived except "uploaded".
 export type Stage = "draft" | "approved" | "voiced" | "exported" | "uploaded";
@@ -11,8 +12,8 @@ export const STAGE_LABEL: Record<Stage, string> = {
   uploaded: "Uploaded",
 };
 
-export const stageOf = (p: ProjectSummary, ws: Workspace): Stage =>
-  ws.projects[p.slug]?.uploadedAt ? "uploaded"
+export const stageOf = (p: ProjectSummary): Stage =>
+  p.uploadedAt ? "uploaded"
   : p.exportedAt ? "exported"
   : p.needsVoice === 0 ? "voiced"
   : p.review.state === "approved" ? "approved"
@@ -22,8 +23,8 @@ type View = "all" | "unfiled" | "review" | "uploaded";
 const VIEWS: { id: View; label: string; test: (p: ProjectSummary, ws: Workspace) => boolean }[] = [
   { id: "all", label: "All", test: () => true },
   { id: "unfiled", label: "Unfiled", test: (p, ws) => !ws.projects[p.slug]?.folder },
-  { id: "review", label: "Needs review", test: (p, ws) => p.review.state !== "approved" && !ws.projects[p.slug]?.uploadedAt },
-  { id: "uploaded", label: "Uploaded", test: (p, ws) => !!ws.projects[p.slug]?.uploadedAt },
+  { id: "review", label: "Needs review", test: (p) => p.review.state !== "approved" && !p.uploadedAt },
+  { id: "uploaded", label: "Uploaded", test: (p) => !!p.uploadedAt },
 ];
 
 const UNFILED = "";
@@ -55,11 +56,13 @@ type Props = {
   projects: ProjectSummary[];
   workspace: Workspace;
   active: string | null;
+  members: Member[];
+  onUploaded: (slug: string, uploaded: boolean) => void;
   // Changes are functions of the latest saved workspace, so another tab's edits aren't overwritten.
   onWorkspace: (update: (ws: Workspace) => Workspace) => void;
 };
 
-export const Sidebar: React.FC<Props> = ({ projects, workspace: ws, active, onWorkspace }) => {
+export const Sidebar: React.FC<Props> = ({ projects, workspace: ws, active, members, onUploaded, onWorkspace }) => {
   const [view, setView] = useState<View>(() => stored("sidebar.view", "all"));
   const [collapsed, setCollapsed] = useState<string[]>(() => stored("sidebar.collapsed", []));
   const [menu, setMenu] = useState<{ kind: "project" | "folder"; id: string } | null>(null);
@@ -96,10 +99,7 @@ export const Sidebar: React.FC<Props> = ({ projects, workspace: ws, active, onWo
       ),
     }));
   };
-  const toggleUploaded = (slug: string) => {
-    const on = !ws.projects[slug]?.uploadedAt; // what the user saw when they clicked
-    onWorkspace((w) => setProjectEntry(w, slug, { uploadedAt: on ? new Date().toISOString() : undefined }));
-  };
+
 
   const groups = [
     ...ws.folders.map((f) => ({ id: f.id, name: f.name })),
@@ -182,7 +182,8 @@ export const Sidebar: React.FC<Props> = ({ projects, workspace: ws, active, onWo
                 )}
               </div>
               {open && items.map((p) => {
-                const stage = stageOf(p, ws);
+                const stage = stageOf(p);
+                const owner = members.find((m) => m.id === p.owner);
                 return (
                   <div
                     key={p.slug}
@@ -200,6 +201,7 @@ export const Sidebar: React.FC<Props> = ({ projects, workspace: ws, active, onWo
                         <span className={`stage ${stage}`}>{STAGE_LABEL[stage]}</span>
                         <ReviewMark p={p} />
                         <span>{p.format === "long-16x9" ? "16:9" : "9:16"}</span>
+                        {owner && members.length > 1 && <span className="owner-chip" title={`Owner: ${owner.name}`}>{owner.name}</span>}
                       </span>
                     </a>
                     <Menu
@@ -220,8 +222,8 @@ export const Sidebar: React.FC<Props> = ({ projects, workspace: ws, active, onWo
                         if (name) createFolder(name, p.slug);
                       }}>New folder…</button>
                       <hr />
-                      <button onClick={() => { setMenu(null); toggleUploaded(p.slug); }}>
-                        {ws.projects[p.slug]?.uploadedAt ? "Unmark uploaded" : "Mark as uploaded"}
+                      <button onClick={() => { setMenu(null); onUploaded(p.slug, !p.uploadedAt); }}>
+                        {p.uploadedAt ? "Unmark uploaded" : "Mark as uploaded"}
                       </button>
                     </Menu>
                   </div>

@@ -307,6 +307,16 @@ npm run studio    # live preview (shows the whales sample by default)
   "open folder", Remotion CLI run by Node, `PORT` read in `vite.config.ts`, Python in UTF-8 mode,
   LF line endings (`.gitattributes`). Not yet tested on a Windows PC (build step 5).
 
+## Team files (Nov 7, 2026 — DEC-15 step 2)
+
+- `members.json` (content root): members and roles (admin, publisher, editor, reviewer).
+  `.studio/me.json` (local): which member this computer is; the dashboard asks on first run.
+- `workspace.json` (content root): sidebar folders. `projects/<slug>/team.json`: owner, assignees,
+  lock (for sync), and where the video went out (`published.youtube` / `published.instagram`).
+- `projects/<slug>/review.json`: one review per member per scene; only the owner approves the script.
+- `activity/<member>.jsonl`: append-only log shown under **Team & activity** in the sidebar.
+- Old data was converted by `tools/migrate_team.py` (backups in `.studio/migration-backup/`).
+
 ## Notes & risks
 
 - **Copyright:** avoid random Google Images — YouTube Content ID can block monetization.

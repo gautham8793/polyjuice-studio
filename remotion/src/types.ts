@@ -310,24 +310,7 @@ export type Project = {
   voice?: Voice;
   music?: Music | null;
   diagram?: { nodes: DiagramNode[] }; // explainer: the org chart "diagram" scenes build up
-  review?: Review; // script review from the dashboard; not used by the renderer
   scenes: Scene[];
-};
-
-// Script review (dashboard "Script" tab). Hashes are FNV-1a of the narration, so an approval
-// goes stale on its own when the narration changes after it was given.
-export type SceneReview = {
-  status: "approved" | "changes";
-  comment?: string; // what to change (or a note on an approval)
-  hash: string; // narration hash at the time of review
-  at: string; // ISO time
-};
-
-export type Review = {
-  scenes?: Record<string, SceneReview>;
-  approvedAt?: string; // whole script approved…
-  approvedBy?: string;
-  scriptHash?: string; // …for this version of all narration
 };
 
 export type Word = { text: string; start: number; end: number };

@@ -15,7 +15,7 @@
 | Language | English now; regional Indian languages (Tamil, Hindi) later |
 | Where it runs | The owner's Mac, folder `Documents/G2.0/Video`; dashboard at http://localhost:3200 (`npm run dashboard`) |
 | Overall stage | In daily use. 21 videos published, 3 AI News Shorts in progress (script stage). Dashboard folders and script review were added on 6 Nov 2026 |
-| Current priority | Team studio (DEC-14, DEC-15). Build step 1 done except moving content into `workspace/` (deferred by the owner) and a Windows test run; next is step 2 — team files |
+| Current priority | Team studio (DEC-14, DEC-15). Steps 1–2 done (Git + Windows-ready code; team files). Open from step 1: move content into `workspace/`, Windows test run. Next: step 3 — content repo, R2 sync, locks |
 | Code history | Git, private GitHub [gautham8793/polyjuice-studio](https://github.com/gautham8793/polyjuice-studio) (`main`), first commit `6361082` — 7 Nov 2026. Content is not in it (content repo comes with sync, DEC-15 step 3) |
 
 **Read these status labels literally:**
@@ -130,8 +130,8 @@ The studio has no numbered releases; these are the verified build milestones.
 | DEC-07 | Cinematic template | Camera "shots" over layered images with labels, effects and cards; `Cinematic` (16:9) and `CinematicVertical` (9:16); used for long-form | Agreed — 6 Nov 2026 |
 | DEC-08 | Motion source | Remotion-only motion until a paid Figma Weave plan; Figma image models are used for stills | Agreed — 5 Nov 2026 |
 | DEC-09 | Instagram posting from the dashboard | Graph API with a non-expiring Page token; video staged in a private GCS bucket behind expiring signed URLs; the owner presses Post | Agreed — 6 Nov 2026 |
-| DEC-10 | Dashboard folders and project status | Folders and uploaded marks in `projects/_workspace.json`, not in `project.json`; smart views All / Unfiled / Needs review / Uploaded; status Draft → Script approved → Voiced → Exported → Uploaded, all derived except Uploaded | Agreed — 6 Nov 2026 |
-| DEC-11 | Script review and approval | Script tab between Scenes and Publish; per-scene Approve / Request change with comment; Approve script records who, when and a narration hash (`review` in `project.json`); approvals reset when narration changes | Agreed — 6 Nov 2026 |
+| DEC-10 | Dashboard folders and project status | Folders in `workspace.json` and uploads in `projects/<slug>/team.json` (moved from `projects/_workspace.json` on 7 Nov 2026, DEC-15 step 2), not in `project.json`; smart views All / Unfiled / Needs review / Uploaded; status Draft → Script approved → Voiced → Exported → Uploaded, all derived except Uploaded | Agreed — 6 Nov 2026 |
+| DEC-11 | Script review and approval | Script tab between Scenes and Publish; each member's own per-scene Approve / Request change with comment; only the video's owner approves the script, recording who, when and a narration hash; stored in `projects/<slug>/review.json` (moved out of `project.json` on 7 Nov 2026); approvals reset when narration changes | Agreed — 6 Nov 2026 |
 | DEC-12 | Make this tracker the maintained project reference | Keep numbered files in `Tracker/`, apply the snapshot policy in §11, and sync it into my_first_tube | Agreed — 7 Nov 2026 |
 | DEC-13 | Agent rules live in the repo | `AGENTS.md` is the entry point for every agent; `PUBLISHING.md` and the `/new-video` skill hold the detail; this tracker records what was agreed | Agreed — 6 Nov 2026 |
 | DEC-14 | Team studio for the shared channel | Three members (Gautham + two friends on Windows) work on The Polyjuice Project together. Stage 1 now: everyone works locally and offline, a Sync button exchanges work asynchronously, and a publisher renders locally and uploads. Stage 2 later: live cloud hub (realtime scripts, comments, presence). Stage 3 later: fully cloud studio. Stage 1 must keep the formats and boundaries stages 2 and 3 need | Agreed — 7 Nov 2026 (direction; supersedes the "own copy, own channel" proposal) |
@@ -216,6 +216,7 @@ Status as of 7 November 2026 (from the dashboard: Uploaded is the owner's mark; 
 | 7 Nov 2026 | Q8 agreed: Cloudflare R2 for media sync. |
 | 7 Nov 2026 | Q9 agreed (Paste script first, then the Polyjuice Studio MCP). DEC-15 async sync design agreed; next tracker version (v1.1) due when build step 1 is verified. |
 | 7 Nov 2026 | Build step 1: code under Git and pushed to private GitHub (`6361082`); content-root setting; Windows fixes. Verified on the Mac: validator and render props by slug, one-scene voice + captions through `captions.py`, a Remotion still rendered from the content root, dashboard API, images, audio and preview. Moving content into `workspace/` deferred by the owner. |
+| 7 Nov 2026 | Build step 2 (team files): `members.json`, `.studio/me.json`, `workspace.json`, per-project `team.json` (owner, uploads, Instagram posts) and `review.json` (one review per member; owner approves), `activity/<member>.jsonl`. Data migrated by `tools/migrate_team.py` (21 uploads, 9 Instagram posts, 3 approvals kept; backups in `.studio/migration-backup/`). Dashboard: who-are-you, Team & activity panel, owner picker, per-member reviews. Verified in the browser with a test member and a test project, both removed. |
 
 ## 14. Tracker created — 7 November 2026
 

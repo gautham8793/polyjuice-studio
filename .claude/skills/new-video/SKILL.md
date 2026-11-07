@@ -181,7 +181,7 @@ Example: `projects/2026-11-ai-news-948-linux-hacks/project.json`. Composition `N
 
 **Script first:** write research + narration + on-screen text and stop. The user approves the
 script in the dashboard Script tab; only then add widgets, photos, voice and a render. File the
-project in the dashboard folder "AI News" (`projects/_workspace.json`, folder `ai-news-k7q2`).
+project in the dashboard folder "AI News" (`workspace.json` at the content root, folder `ai-news-k7q2`).
 
 Project settings: `"template": "newsroom"`, `"theme": "newsroom"`, `"style": "photo-mix"`,
 `"news": { "tag": "AI NEWS", "date": "NOV 4, 2026" }` (the day the story broke),
@@ -221,6 +221,13 @@ Target **110–140 words total** (~45–60 s at the channel's voice speed).
 - **Spell numbers out in `narration`** ("two thousand meters") — the voice reads digits badly.
   Use digits in `onScreenText` ("2,000 m+").
 - No claims beyond what `research.md` supports.
+
+## Team files for a new project
+
+Every new `projects/<slug>/` also gets `team.json` with the member who asked for it as owner:
+`{"owner": "<id from .studio/me.json>"}` (member ids are in `members.json` at the content root).
+The owner approves the script in the dashboard. Never write `review.json` or an approval yourself:
+reviews and approvals are made by people in the Script tab.
 
 ## 3. On-screen text rules
 

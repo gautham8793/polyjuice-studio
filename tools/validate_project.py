@@ -38,22 +38,26 @@ def narration_hash(text: str) -> str:
     return f"{h:08x}"
 
 
-def check_review(project: dict, warnings: list[str]) -> None:
-    """The dashboard's Script tab stores approvals in `review`; flag ones the narration has outgrown."""
-    review = project.get("review")
-    if not review:
+def check_review(project: dict, project_dir: Path, warnings: list[str]) -> None:
+    """Script review lives in review.json (one review per member per scene); flag what the narration has outgrown."""
+    file = project_dir / "review.json"
+    if not file.exists():
         return
+    review = json.loads(file.read_text(encoding="utf-8"))
     scenes = {s.get("id"): s for s in project.get("scenes", [])}
-    for sid, r in (review.get("scenes") or {}).items():
+    for sid, by_member in (review.get("scenes") or {}).items():
         scene = scenes.get(sid)
         if scene is None:
             warnings.append(f"review: scene '{sid}' no longer exists")
-        elif r.get("status") == "changes" and r.get("hash") == narration_hash(scene.get("narration", "").strip()):
-            warnings.append(f"{sid}: change requested in review — {r.get('comment', '')}")
-    if review.get("approvedAt"):
+            continue
+        for member, r in by_member.items():
+            if r.get("status") == "changes" and r.get("hash") == narration_hash(scene.get("narration", "").strip()):
+                warnings.append(f"{sid}: {member} requested a change — {r.get('comment', '')}")
+    approval = review.get("approval")
+    if approval:
         current = narration_hash("\n\n".join(f"{s.get('id')}\n{s.get('narration', '').strip()}" for s in project.get("scenes", [])))
-        if review.get("scriptHash") != current:
-            warnings.append("narration changed after the script was approved — re-approve it in the dashboard (Script tab)")
+        if approval.get("scriptHash") != current:
+            warnings.append("narration changed after the script was approved — the owner re-approves it in the dashboard (Script tab)")
 
 
 HEALTH_WORDS = ("cancer", "disease", "therapy", "drug", "medical", "treatment", "patient", "leukemia", "vaccine")
@@ -350,7 +354,7 @@ def main() -> None:
         elif tag.get("attribution"):
             warnings.append(f"music needs credit in the description: {tag['attribution']}")
 
-    check_review(project, warnings)
+    check_review(project, project_dir, warnings)
 
     for w in warnings:
         print(f"warning: {w}")
