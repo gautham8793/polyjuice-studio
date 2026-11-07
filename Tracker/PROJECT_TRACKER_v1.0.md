@@ -15,8 +15,8 @@
 | Language | English now; regional Indian languages (Tamil, Hindi) later |
 | Where it runs | The owner's Mac, folder `Documents/G2.0/Video`; dashboard at http://localhost:3200 (`npm run dashboard`) |
 | Overall stage | In daily use. 21 videos published, 3 AI News Shorts in progress (script stage). Dashboard folders and script review were added on 6 Nov 2026 |
-| Current priority | Team studio for 3 members on one channel: async sync design agreed (DEC-14, DEC-15). Next: build step 1 — Git + Windows port (design doc §12) |
-| Code history | **Not under Git yet** — no version history, backup or remote (GAP-01) |
+| Current priority | Team studio (DEC-14, DEC-15). Build step 1 done except moving content into `workspace/` (deferred by the owner) and a Windows test run; next is step 2 — team files |
+| Code history | Git, private GitHub [gautham8793/polyjuice-studio](https://github.com/gautham8793/polyjuice-studio) (`main`), first commit `6361082` — 7 Nov 2026. Content is not in it (content repo comes with sync, DEC-15 step 3) |
 
 **Read these status labels literally:**
 
@@ -61,7 +61,8 @@ These are requirements, not claims that every detail is enforced in code.
 | Area | Status | Details / evidence |
 | --- | --- | --- |
 | Local toolchain | Completed — 4 Nov 2026 | Node + npm workspaces (`remotion/`, `dashboard/`), Python 3.12 venv `tools/.venv`, FFmpeg/ffprobe, whisper.cpp with `tools/models/ggml-base.en.bin`, Kokoro TTS |
-| Git / backup | **Not started** | Folder is not a Git repository; no remote, no backup (GAP-01) |
+| Git / backup (code) | Completed — 7 Nov 2026 | Private repo `gautham8793/polyjuice-studio`, `main` tracks `origin/main`; repository-local identity `gautham8793` (GitHub privacy email); `.gitignore` keeps content, `out/`, `secrets/`, models and venv out; staged files scanned for credentials before the first push |
+| Content root | Completed — 7 Nov 2026 | `STUDIO_WORKSPACE` → `./workspace` → repo root, in `tools/studio_paths.py`, `dashboard/server/paths.ts`, `remotion/remotion.config.ts`. Content still at the repo root; the move into `workspace/` is deferred |
 | Google Cloud TTS | Configured | Indian-English Chirp3-HD voices; service-account key in `secrets/google-tts.json` |
 | Pexels search | Optional | `PEXELS_API_KEY` in `dashboard/.env.local` |
 | Instagram publishing | Configured | Graph API via Facebook Login; Page token in `secrets/instagram.json`; videos handed over through a private GCS bucket with expiring signed URLs (`secrets/gcs-reels.json`, set up by `tools/setup_reels_bucket.sh`) |
@@ -140,8 +141,8 @@ The studio has no numbered releases; these are the verified build milestones.
 
 | ID | Finding | Planned handling |
 | --- | --- | --- |
-| GAP-01 | The folder is not under Git: no history, no backup, no way to ship updates to others | Initialise Git with a private remote; keep `secrets/`, `out/`, audio and large assets out of it |
-| GAP-02 | Mac-only code paths: `tools/.venv/bin/python`, bash `tools/captions.sh`, macOS `open`, FFmpeg via Homebrew, and symlinks in `remotion/public/` | Fix in DEC-15 build step 1 (Windows port) |
+| GAP-01 | ~~The folder is not under Git~~ Code is on private GitHub since 7 Nov 2026; **content still has no backup** until the content repo and R2 sync exist (DEC-15 step 3) | Content repo + R2 in step 3 |
+| GAP-02 | Mac-only code paths — fixed in code on 7 Nov 2026 (venv path, `captions.py`, Explorer, Node-run Remotion CLI, `PORT`, UTF-8 Python, no symlinks, LF endings); **not yet run on a Windows PC**; FFmpeg / whisper.cpp / Kokoro installs on Windows come with `setup.ps1` | Test on a friend's PC in step 5 |
 | GAP-03 | Rules are written in several places (`AGENTS.md`, `PUBLISHING.md`, skill, agent memory, my_first_tube) | This tracker records decisions; docs hold the detail; update both when a rule changes |
 | GAP-04 | No automated tests; checks are the validator, typechecks and browser review | Add tests if more people start using it |
 | GAP-05 | `out/` is ~1.1 GB and growing; no clean-up policy | Decide what to keep after upload |
@@ -214,6 +215,7 @@ Status as of 7 November 2026 (from the dashboard: Uploaded is the owner's mark; 
 | 7 Nov 2026 | Q2, Q5, Q6, Q7 agreed (Claude Code for all + paste option; Gautham publishes; owner approves the script, Gautham approves the video; one shared Google TTS key). Q8 compared; Q9 (script intake via paste + MCP) proposed. |
 | 7 Nov 2026 | Q8 agreed: Cloudflare R2 for media sync. |
 | 7 Nov 2026 | Q9 agreed (Paste script first, then the Polyjuice Studio MCP). DEC-15 async sync design agreed; next tracker version (v1.1) due when build step 1 is verified. |
+| 7 Nov 2026 | Build step 1: code under Git and pushed to private GitHub (`6361082`); content-root setting; Windows fixes. Verified on the Mac: validator and render props by slug, one-scene voice + captions through `captions.py`, a Remotion still rendered from the content root, dashboard API, images, audio and preview. Moving content into `workspace/` deferred by the owner. |
 
 ## 14. Tracker created — 7 November 2026
 

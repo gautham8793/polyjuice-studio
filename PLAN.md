@@ -163,7 +163,7 @@ Higgsfield / ImagineArt integration, thumbnail generation, own-voice recording f
 tools/.venv/bin/python tools/tts.py "Text to speak" out/voice.wav --voice am_michael
 
 # Word-level captions (whisper.cpp, model in tools/models/)
-tools/captions.sh out/voice.wav out/captions      # -> out/captions.json
+tools/.venv/bin/python tools/captions.py out/voice.wav out/captions   # -> out/captions.json (whisper-cli + ffmpeg)
 
 # Remotion studio / render (from remotion/)
 npm run studio
@@ -294,6 +294,18 @@ npm run studio    # live preview (shows the whales sample by default)
 - **Cinematic template** (`template: "cinematic"`): `format: "long-16x9"` renders with the
   `Cinematic` composition (1920×1080); `format: "short-9x16"` with `CinematicVertical`
   (1080×1920). Shared CAR-T images live in `library/assets/car-t/`.
+
+## Code repo and content root (Nov 7, 2026)
+
+- The code is a Git repo: private GitHub `gautham8793/polyjuice-studio` (`main`). Content (`projects/`,
+  `library/`, `brand/`), renders (`out/`), keys (`secrets/`) and downloaded tools are not in it.
+- **Content root:** `STUDIO_WORKSPACE`, else `./workspace` if it exists, else the repo root (today's
+  layout). Set in `tools/studio_paths.py`, `dashboard/server/paths.ts` and `remotion/remotion.config.ts`
+  (Remotion's `publicDir`, replacing the old `remotion/public` symlinks). Tools take a slug or a folder:
+  `python3 tools/validate_project.py <slug>`.
+- **Windows-ready:** venv python path per OS, captions in Python (`tools/captions.py`), Explorer for
+  "open folder", Remotion CLI run by Node, `PORT` read in `vite.config.ts`, Python in UTF-8 mode,
+  LF line endings (`.gitattributes`). Not yet tested on a Windows PC (build step 5).
 
 ## Notes & risks
 

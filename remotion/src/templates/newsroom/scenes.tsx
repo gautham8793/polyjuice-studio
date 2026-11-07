@@ -452,15 +452,16 @@ export const NewsHookScene: React.FC<SceneProps> = (props) => {
   );
 };
 
-// Beat: full-screen photo behind a headline and the data widget; the photo shows through below.
+// Beat: full-screen photo behind a headline and the data widget, centred vertically.
 export const NewsBeatScene: React.FC<SceneProps> = (props) => {
   const theme = useTheme();
   const { project, index, scene, words } = props;
   return (
     <AbsoluteFill style={{ backgroundColor: theme.background }}>
-      <PhotoBackground {...props} dim="linear-gradient(180deg, BGF2 0%, BGCC 34%, BG55 58%, BG55 74%, BGEE 92%)" />
+      <PhotoBackground {...props} dim="linear-gradient(180deg, BGE6 0%, BG8C 22%, BGA6 50%, BG8C 78%, BGF2 96%)" />
       <Drift index={index}>
-        <AbsoluteFill style={{ padding: "180px 56px 360px", display: "flex", flexDirection: "column", gap: 34 }}>
+        {/* headline + widget sit in the middle of the frame, between the top bar and the captions */}
+        <AbsoluteFill style={{ padding: "170px 56px 330px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 34 }}>
           <Headline text={scene.onScreenText} size={84} />
           {scene.widget && <Widget widget={scene.widget} words={words} />}
         </AbsoluteFill>
