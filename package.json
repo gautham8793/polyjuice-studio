@@ -1,0 +1,9 @@
+{
+  "name": "video-workflow",
+  "private": true,
+  "workspaces": ["remotion", "dashboard"],
+  "scripts": {
+    "dashboard": "npm --workspace dashboard run dev",
+    "studio": "npm --workspace remotion run studio"
+  }
+}

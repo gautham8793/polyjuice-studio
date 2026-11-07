@@ -1,0 +1,24 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dashboard",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dashboard"
+      ],
+      "port": 3200,
+      "autoPort": true
+    },
+    {
+      "name": "remotion-studio",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd remotion && npx remotion studio src/index.ts --port 3123 --no-open"
+      ],
+      "port": 3123
+    }
+  ]
+}

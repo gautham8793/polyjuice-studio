@@ -1,0 +1,27 @@
+# Code repo for Polyjuice Video Studio. The channel's content (projects, library, brand) is not
+# code: it lives in workspace/ and syncs through its own repo (see docs/decisions, DEC-15).
+/workspace/
+/projects/
+/library/
+/brand/
+
+# Local only: renders, machine state, keys
+/out/
+/.studio/
+secrets/
+.env
+dashboard/.env.local
+.claude/settings.local.json
+
+# Installed / downloaded tools and caches
+node_modules/
+.venv/
+tools/models/
+tools/bin/
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+
+# Logo explorations (large images, kept locally)
+/.skill-archive/
