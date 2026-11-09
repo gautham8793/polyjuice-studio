@@ -67,19 +67,17 @@ file API runs inside the Vite dev server; everything is files, there is no datab
   `dashboard/server`), so a running dashboard picks up server edits; the browser may need a reload.
 - `npm run dashboard -- <flags>` does **not** pass flags to Vite (two npm layers); set `PORT` instead.
 
-## 5. Work in progress you must not lose
+## 5. Earlier work, now committed
 
-Other sessions left **uncommitted** changes in the code repo (as of 9 Nov 13:30). They are the
-owner's work; don't revert or reformat them, and don't commit them as part of unrelated work:
-- Dashboard: `PublishPanel.tsx` (collapsible **Accordion** redesign of the Publish tab),
-  `styles.css` (the matching `.accordion*`, `.as-posted`, `.label-row` styles), `Preview.tsx`,
-  `server/api.ts` (an 8-line change: an uploaded image becomes a cinematic shot's background layer).
-- Remotion templates, `tools/prepare.py`, `AGENTS.md`, the new-video skill, the tracker,
-  `docs/playbooks/`, `.claude/skills/video-hook-writer/`.
+The previous sessions' pending work was committed on 9 Nov (`a0ad761`…`5073d30`): the Publish tab's
+collapsible **Accordion** sections (`PublishPanel.tsx` + `.accordion*` styles), preview audio tags,
+cinematic background-layer uploads, template fixes, the voice-key fix, agent docs and the tracker.
+The working tree was clean except a stray duplicate image, `web-black.png`, at the repo root (not
+code; don't commit it).
 
-Ask the owner whether to commit them first. If you must commit around them, stage only your own
-hunks and typecheck the exact staged tree (`git checkout-index -a --prefix=<tmp>/`, link
-`node_modules`, run `tsc`), which caught a broken partial stage once already.
+If more uncommitted work from other sessions appears, don't revert or reformat it. Ask the owner;
+if you must commit around it, stage only your own hunks and typecheck the exact staged tree
+(`git checkout-index -a --prefix=<tmp>/`, link `node_modules`, run `tsc`).
 
 ## 6. Open UX gaps (ideas, not agreed)
 
