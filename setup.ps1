@@ -30,6 +30,13 @@ function Retry([scriptblock]$Do) {
   }
   throw "still failing after 5 attempts"
 }
+# Run a program only to read its output / exit code. Windows PowerShell 5.1 turns a program's
+# error output into a stopping error even when it's redirected to $null, so relax that here.
+function Quiet([scriptblock]$Do) {
+  $previous = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  try { & $Do 2>$null } finally { $ErrorActionPreference = $previous }
+}
 # Write UTF-8 without a byte-order mark (Node's JSON.parse rejects one).
 function Write-Utf8($path, $text) { [IO.File]::WriteAllText((Join-Path $PWD $path), $text) }
 
@@ -51,13 +58,13 @@ function Find-Python {
     "${env:ProgramFiles(x86)}\Python312\python.exe"
   )
   if (Have py) {
-    foreach ($line in (& py -0p 2>$null)) { if ($line -match "(\S.*python\.exe)\s*$") { $candidates += $Matches[1].Trim() } }
+    foreach ($line in (Quiet { & py -0p })) { if ($line -match "(\S.*python\.exe)\s*$") { $candidates += $Matches[1].Trim() } }
   }
   $candidates += (Get-Command python -All -ErrorAction SilentlyContinue | ForEach-Object { $_.Source })
   $script:pythonsSeen = @()
   foreach ($exe in ($candidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique)) {
     if ($exe -like "*WindowsApps*") { continue } # the Microsoft Store "python" stub
-    $info = & $exe -c "import sysconfig, sys; print(sysconfig.get_platform(), '%d.%d' % sys.version_info[:2])" 2>$null
+    $info = Quiet { & $exe -c "import sysconfig, sys; print(sysconfig.get_platform(), '%d.%d' % sys.version_info[:2])" }
     $script:pythonsSeen += "    $exe -> $info"
     if ($info -match "^(\S+) 3\.12$" -and (-not $arm -or $Matches[1] -eq "win-amd64")) { return $exe }
   }
@@ -95,7 +102,7 @@ if (-not (Test-Path "tools\.venv\Scripts\python.exe")) { & $py -m venv tools\.ve
 Retry { & tools\.venv\Scripts\python.exe -m pip install --upgrade pip }
 Retry { & tools\.venv\Scripts\python.exe -m pip install -r tools\requirements.txt }
 # spaCy's English model (used by the Kokoro voice): GitHub release, else the official Hugging Face copy.
-& tools\.venv\Scripts\python.exe -c "import en_core_web_sm" 2>$null
+Quiet { & tools\.venv\Scripts\python.exe -c "import en_core_web_sm" } | Out-Null
 if ($LASTEXITCODE -ne 0) {
   try { Retry { & tools\.venv\Scripts\python.exe -m pip install "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" } }
   catch { Retry { & tools\.venv\Scripts\python.exe -m pip install "https://huggingface.co/spacy/en_core_web_sm/resolve/main/en_core_web_sm-any-py3-none-any.whl" } }
