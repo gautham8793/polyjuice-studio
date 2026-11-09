@@ -42,7 +42,9 @@ if (-not (Have node)) { Install "OpenJS.NodeJS.LTS" }
 $arm = $env:PROCESSOR_ARCHITECTURE -eq "ARM64"
 function Find-Python {
   # Candidates: the standard install folders (a fresh install may not be on PATH yet), the py
-  # launcher's list, and any python on PATH. Each is asked what it is; on ARM keep x64 (AMD64) only.
+  # launcher's list, and any python on PATH. Each is asked how it was built (sysconfig: "win-amd64"
+  # or "win-arm64"; platform.machine() describes the PC, not the build, under emulation). On ARM keep
+  # the x64 build only.
   $candidates = @(
     "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe",
     "$env:ProgramFiles\Python312\python.exe",
@@ -52,10 +54,12 @@ function Find-Python {
     foreach ($line in (& py -0p 2>$null)) { if ($line -match "(\S.*python\.exe)\s*$") { $candidates += $Matches[1].Trim() } }
   }
   $candidates += (Get-Command python -All -ErrorAction SilentlyContinue | ForEach-Object { $_.Source })
+  $script:pythonsSeen = @()
   foreach ($exe in ($candidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique)) {
     if ($exe -like "*WindowsApps*") { continue } # the Microsoft Store "python" stub
-    $info = & $exe -c "import platform, sys; print(platform.machine(), '%d.%d' % sys.version_info[:2])" 2>$null
-    if ($info -match "^(\S+) 3\.12$" -and (-not $arm -or $Matches[1] -eq "AMD64")) { return $exe }
+    $info = & $exe -c "import sysconfig, sys; print(sysconfig.get_platform(), '%d.%d' % sys.version_info[:2])" 2>$null
+    $script:pythonsSeen += "    $exe -> $info"
+    if ($info -match "^(\S+) 3\.12$" -and (-not $arm -or $Matches[1] -eq "win-amd64")) { return $exe }
   }
   return $null
 }
@@ -72,7 +76,11 @@ if (-not $py) {
   try { $py = Find-Python } catch {}
 }
 if (-not (Have ffmpeg)) { Install "Gyan.FFmpeg" }
-if (-not $py) { throw "Python 3.12$(if ($arm) { ' (x64)' }) still isn't found. Close this window, open a new PowerShell and run setup again." }
+if (-not $py) {
+  Write-Host "  Pythons found (path -> build, version):" -ForegroundColor Yellow
+  if ($script:pythonsSeen) { $script:pythonsSeen | ForEach-Object { Write-Host $_ -ForegroundColor Yellow } } else { Write-Host "    none" -ForegroundColor Yellow }
+  throw "Python 3.12$(if ($arm) { ' (x64)' }) still isn't found. Close this window, open a new PowerShell and run setup again."
+}
 Write-Host "  Python: $py"
 foreach ($cmd in "git", "node", "npm", "ffmpeg", "ffprobe") {
   if (-not (Have $cmd)) { throw "$cmd still isn't found. Close this window, open a new PowerShell and run setup again." }
