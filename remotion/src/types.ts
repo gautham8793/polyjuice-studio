@@ -263,7 +263,7 @@ export type NewsTone = "accent" | "danger" | "up" | "neutral";
 export type NewsWidget =
   | { type: "funnel"; rows: { label: string; value: number; cue?: string; tone?: NewsTone }[] }
   | { type: "counter"; items: { value: number; prefix?: string; suffix?: string; decimals?: number; label: string; cue?: string; tone?: NewsTone }[] }
-  | { type: "ticker"; trend: "down" | "up"; label?: string; cue?: string; items?: { label: string; change: number; cue?: string }[] }
+  | { type: "ticker"; trend: "down" | "up"; tone?: NewsTone; label?: string; cue?: string; items?: { label: string; change: number; cue?: string }[] } // tone: line color when "up" isn't good news
   | { type: "compare"; unit?: string; items: { label: string; value: number; max?: number; cue?: string; tone?: NewsTone }[] }
   | { type: "terminal"; title?: string; lines: { text: string; cue?: string; tone?: NewsTone }[] }
   | { type: "checklist"; columns: { label: string; done: number; total: number; cue?: string; tone?: NewsTone }[] };

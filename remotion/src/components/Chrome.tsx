@@ -147,7 +147,7 @@ export const Chrome: React.FC<{
           style={{
             position: "absolute",
             left: 40,
-            bottom: tall ? 430 : 200,
+            bottom: tall ? Math.max(430, theme.captions.bottomOffset + 180) : 200, // above the captions, wherever they sit
             transform: `translateX(${(1 - intro) * -760}px)`,
             opacity: intro,
             display: "flex",

@@ -564,12 +564,13 @@ export const CommentScene: React.FC<SceneProps> = ({ scene, projectPath }) => {
               {face && <Face face={face} pop={pop} ring={i % 2 ? theme.secondary : theme.accent} />}
             <div
               style={{
-                padding: "26px 46px",
+                padding: Math.max(...c.choices.map((x) => x.length)) > 9 ? "24px 34px" : "26px 46px",
                 borderRadius: 999,
                 backgroundColor: i % 2 ? theme.secondary : theme.accent,
                 color: i % 2 ? theme.textOnSecondary : theme.textOnAccent,
                 fontFamily: theme.headlineFont,
-                fontSize: 84,
+                // long choices ("😬 MISSING OUT") shrink so the pair still fits across the frame
+                fontSize: Math.max(...c.choices.map((x) => x.length)) > 9 ? 60 : 84,
                 lineHeight: 1,
                 whiteSpace: "nowrap",
                 transform: `scale(${pop}) rotate(${wiggle * pop}deg)`,

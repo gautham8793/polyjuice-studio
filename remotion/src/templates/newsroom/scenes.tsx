@@ -1,7 +1,7 @@
 // Newsroom template (AI News series), terminal look: every scene carries a top bar (tag · date ·
 // scene count) over a full-screen photo with scanlines; beats add a headline and one data widget.
 // Widgets are filled from project.json, so a new story needs no code — only `widget` per scene.
-// Scenes cut in with a glitch and drift slowly while they play.
+// Scenes cut in with a glitch on the picture (never the text) and drift slowly while they play.
 import { AbsoluteFill, Easing, interpolate, random, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { EmphasisText } from "../../components/EmphasisText";
 import { SceneVisual } from "../../components/SceneVisual";
@@ -15,10 +15,19 @@ const CARD_BORDER = "#1F4A2A";
 
 const norm = (w: string) => w.toLowerCase().replace(/[^a-z0-9]/g, "");
 
+// Captions often write spoken numbers as digits ("nine hundred forty eight" → "948"), so a
+// number-word cue also matches a word starting with its digits: "nine" ↔ "948", "eighty" ↔ "80%".
+const NUMBER_CUES: Record<string, string> = {
+  one: "1", two: "2", three: "3", four: "4", five: "5", six: "6", seven: "7", eight: "8", nine: "9", ten: "10",
+  eleven: "11", twelve: "12", thirteen: "13", fourteen: "14", fifteen: "15", sixteen: "16", seventeen: "17", eighteen: "18", nineteen: "19",
+  twenty: "2", thirty: "3", forty: "4", fifty: "5", sixty: "6", seventy: "7", eighty: "8", ninety: "9",
+};
+
 // Frame the narration reaches `cue` (scene-relative), or `fallback` when there's no cue / no match.
 const cueFrame = (cue: string | undefined, words: Word[] | undefined, fps: number, fallback: number) => {
   const c = cue ? norm(cue) : "";
-  const w = c ? words?.find((x) => norm(x.text).startsWith(c)) : undefined;
+  const digits = NUMBER_CUES[c];
+  const w = c ? words?.find((x) => norm(x.text).startsWith(c) || (digits !== undefined && /\d/.test(x.text) && norm(x.text).startsWith(digits))) : undefined;
   return w ? Math.round(w.start * fps) : fallback;
 };
 
@@ -68,7 +77,16 @@ const Headline: React.FC<{ text: string; size: number }> = ({ text, size }) => {
   const theme = useTheme();
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const words = text.split(" ");
+  // *emphasis* may span several words ("*MASTER KEY*"): carry it across the word split
+  let open = false;
+  const words = text.split(" ").map((raw) => {
+    const starts = raw.startsWith("*");
+    const ends = raw.endsWith("*") && raw.length > (starts ? 1 : 0);
+    const bare = raw.replace(/^\*|\*$/g, "");
+    const on = open || starts;
+    open = (open || starts) && !ends;
+    return on && !bare.includes("*") ? `*${bare}*` : raw;
+  });
   return (
     <div style={{ fontFamily: theme.headlineFont, fontWeight: 800, fontSize: size, lineHeight: 1.05, letterSpacing: -2, textTransform: "uppercase", color: theme.text, textWrap: "balance", textShadow: "0 4px 24px rgba(0,0,0,0.8)" }}>
       {words.map((w, i) => {
@@ -76,7 +94,8 @@ const Headline: React.FC<{ text: string; size: number }> = ({ text, size }) => {
         return (
           <span key={i} style={{ display: "inline-block", marginRight: size * 0.4, transform: `translateY(${(1 - enter) * 40}px)`, opacity: enter }}>
             <EmphasisText text={w} />
-            {i === words.length - 1 && Math.floor(frame / 15) % 2 === 0 ? <span style={{ color: theme.accent }}>_</span> : null}
+            {/* the cursor always takes its space and only blinks, so the headline never re-wraps */}
+            {i === words.length - 1 ? <span style={{ color: theme.accent, opacity: Math.floor(frame / 15) % 2 === 0 ? 1 : 0 }}>_</span> : null}
           </span>
         );
       })}
@@ -178,7 +197,7 @@ const Ticker: React.FC<WidgetProps<"ticker">> = ({ widget, words }) => {
   const at = cueFrame(widget.cue, words, fps, 6);
   const t = useRamp(at, 45);
   const down = widget.trend === "down";
-  const color = down ? theme.secondary : UP;
+  const color = widget.tone ? toneColor(widget.tone, theme) : down ? theme.secondary : UP;
   const W = 900;
   const H = 300;
   const N = 40;
@@ -399,7 +418,8 @@ const Drift: React.FC<{ index: number; children: React.ReactNode }> = ({ index, 
   return <AbsoluteFill style={{ transform: `scale(${1 + 0.035 * t}) translate(${dir * 14 * t}px, ${-10 * t}px)` }}>{children}</AbsoluteFill>;
 };
 
-// Scene cut: the frame tears into offset strips with a green flash for ~9 frames, then settles.
+// Scene cut on the background picture: it tears into offset strips with a green flash for ~9
+// frames, then settles. Text is never wrapped in this.
 export const GlitchIn: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const frame = useCurrentFrame();
   const theme = useTheme();
@@ -425,12 +445,13 @@ export const GlitchIn: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
 const PhotoBackground: React.FC<SceneProps & { dim: string }> = ({ scene, projectPath, index, dim }) => {
   const theme = useTheme();
+  // only the picture glitches on the cut — headlines, cards and captions come in clean
   return (
-    <>
+    <GlitchIn>
       <SceneVisual visual={scene.visual} projectPath={projectPath} label={scene.name ?? scene.id} direction={index % 2 ? -1 : 1} mapPlacement="background" />
       <AbsoluteFill style={{ background: dim.replaceAll("BG", theme.background) }} />
       <Scanlines />
-    </>
+    </GlitchIn>
   );
 };
 
@@ -442,7 +463,8 @@ export const NewsHookScene: React.FC<SceneProps> = (props) => {
     <AbsoluteFill style={{ backgroundColor: theme.background }}>
       <PhotoBackground {...props} dim="linear-gradient(180deg, BGCC 0%, transparent 22%, transparent 42%, BGEE 72%, BG 100%)" />
       <Drift index={index}>
-        <AbsoluteFill style={{ justifyContent: "flex-end", padding: "0 56px 400px", gap: 26 }}>
+        {/* stays clear of the captions, wherever the project puts them */}
+        <AbsoluteFill style={{ justifyContent: "flex-end", padding: `0 56px ${theme.captions.bottomOffset + 190}px`, gap: 26 }}>
           <div style={{ fontFamily: theme.headlineFont, fontWeight: 800, fontSize: 34, color: theme.accent }}>&gt; breaking</div>
           <Headline text={scene.onScreenText} size={112} />
         </AbsoluteFill>
@@ -461,7 +483,7 @@ export const NewsBeatScene: React.FC<SceneProps> = (props) => {
       <PhotoBackground {...props} dim="linear-gradient(180deg, BGE6 0%, BG8C 22%, BGA6 50%, BG8C 78%, BGF2 96%)" />
       <Drift index={index}>
         {/* headline + widget sit in the middle of the frame, between the top bar and the captions */}
-        <AbsoluteFill style={{ padding: "170px 56px 330px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 34 }}>
+        <AbsoluteFill style={{ padding: `170px 56px ${Math.max(330, theme.captions.bottomOffset + 160)}px`, display: "flex", flexDirection: "column", justifyContent: "center", gap: 34 }}>
           <Headline text={scene.onScreenText} size={84} />
           {scene.widget && <Widget widget={scene.widget} words={words} />}
         </AbsoluteFill>
