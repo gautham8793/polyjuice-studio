@@ -20,6 +20,16 @@ function Install($id) {
   winget install --id $id --exact --silent --accept-source-agreements --accept-package-agreements
   Refresh-Path
 }
+# Run a script block up to 3 times (downloads from GitHub / PyPI sometimes time out).
+function Retry([scriptblock]$Do) {
+  for ($n = 1; $n -le 3; $n++) {
+    $global:LASTEXITCODE = 0 # cmdlets like Invoke-WebRequest don't set it; native commands do
+    try { & $Do; if ($LASTEXITCODE -eq 0) { return } } catch { Write-Host "  $_" }
+    Write-Host "  attempt $n failed; retrying in $($n * 10) s" -ForegroundColor Yellow
+    Start-Sleep -Seconds ($n * 10)
+  }
+  throw "still failing after 3 attempts"
+}
 # Write UTF-8 without a byte-order mark (Node's JSON.parse rejects one).
 function Write-Utf8($path, $text) { [IO.File]::WriteAllText((Join-Path $PWD $path), $text) }
 
@@ -41,9 +51,8 @@ if ($LASTEXITCODE -ne 0) { throw "npm ci failed" }
 
 Step "Python packages (tools\.venv): Kokoro voice, Google TTS, image tools"
 if (-not (Test-Path "tools\.venv\Scripts\python.exe")) { & py -3.12 -m venv tools\.venv }
-& tools\.venv\Scripts\python.exe -m pip install --upgrade pip
-& tools\.venv\Scripts\python.exe -m pip install -r tools\requirements.txt
-if ($LASTEXITCODE -ne 0) { throw "pip install failed" }
+Retry { & tools\.venv\Scripts\python.exe -m pip install --upgrade pip }
+Retry { & tools\.venv\Scripts\python.exe -m pip install -r tools\requirements.txt }
 # Scripts contain emoji and the rupee sign; without this Python on Windows reads them as cp1252.
 [Environment]::SetEnvironmentVariable("PYTHONUTF8", "1", "User")
 $env:PYTHONUTF8 = "1"
@@ -56,14 +65,14 @@ if (-not (Test-Path "tools\bin\whisper-cli.exe")) {
   if (-not $asset) { throw "whisper-bin-x64.zip isn't in the latest whisper.cpp release; download it by hand into tools\bin" }
   $zip = Join-Path $env:TEMP "whisper-bin-x64.zip"
   $unzip = Join-Path $env:TEMP "whisper-bin-x64"
-  Invoke-WebRequest $asset.browser_download_url -OutFile $zip
+  Retry { Invoke-WebRequest $asset.browser_download_url -OutFile $zip }
   Remove-Item $unzip -Recurse -Force -ErrorAction SilentlyContinue
   Expand-Archive $zip $unzip
   Get-ChildItem $unzip -Recurse -File | Where-Object { $_.Extension -in ".exe", ".dll" } | Copy-Item -Destination "tools\bin" -Force
 }
 if (-not (Test-Path "tools\models\ggml-base.en.bin")) {
   Write-Host "  downloading the 148 MB English model"
-  Invoke-WebRequest "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin" -OutFile "tools\models\ggml-base.en.bin"
+  Retry { Invoke-WebRequest "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin" -OutFile "tools\models\ggml-base.en.bin" }
 }
 
 Step "Channel content (workspace\)"

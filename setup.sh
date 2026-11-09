@@ -8,24 +8,30 @@ MEMBER="${1:-}"
 CONTENT_REPO="${CONTENT_REPO:-https://github.com/gautham8793/polyjuice-channel.git}"
 step() { printf '\n== %s\n' "$1"; }
 
-step "Tools: Git, Node.js, Python 3.12, FFmpeg, whisper.cpp (Homebrew)"
-command -v brew >/dev/null || { echo "Install Homebrew first: https://brew.sh"; exit 1; }
-for pkg in git node python@3.12 ffmpeg whisper-cpp; do
-  brew list --formula "$pkg" >/dev/null 2>&1 || brew install "$pkg"
-done
-PY="$(brew --prefix python@3.12)/bin/python3.12"
+# Retry a command a few times (downloads from GitHub / PyPI sometimes time out).
+retry() { local n; for n in 1 2 3; do "$@" && return 0; echo "  attempt $n failed; retrying in $((n * 10)) s"; sleep $((n * 10)); done; return 1; }
+
+step "Tools: Git, Node.js, Python 3.12, FFmpeg, whisper.cpp"
+# Only what's missing is installed (Homebrew); tools that already work are left alone.
+need() { command -v "$1" >/dev/null 2>&1 || { command -v brew >/dev/null || { echo "Install Homebrew first: https://brew.sh"; exit 1; }; brew install "$2"; }; }
+need git git
+need node node
+need ffmpeg ffmpeg
+need whisper-cli whisper-cpp
+need python3.12 python@3.12
+PY="$(command -v python3.12)"
 
 step "Studio packages (npm)"
 npm ci
 
 step "Python packages (tools/.venv)"
 [ -x tools/.venv/bin/python ] || "$PY" -m venv tools/.venv
-tools/.venv/bin/python -m pip install --upgrade pip
-tools/.venv/bin/python -m pip install -r tools/requirements.txt
+retry tools/.venv/bin/python -m pip install --upgrade pip
+retry tools/.venv/bin/python -m pip install -r tools/requirements.txt
 
 step "Captions model"
 mkdir -p tools/models
-[ -f tools/models/ggml-base.en.bin ] || curl -L --fail -o tools/models/ggml-base.en.bin \
+[ -f tools/models/ggml-base.en.bin ] || retry curl -L --fail -o tools/models/ggml-base.en.bin \
   https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
 
 step "Channel content (workspace/)"
