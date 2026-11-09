@@ -6,17 +6,11 @@ import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
-const cache = new Map<string, string>();
-
+// Not cached: a running dashboard picks up a move of the content folder without a restart.
 export const contentRoot = (codeRoot: string) => {
-  let dir = cache.get(codeRoot);
-  if (!dir) {
-    const env = process.env.STUDIO_WORKSPACE;
-    const ws = path.join(codeRoot, "workspace");
-    dir = env ? path.resolve(codeRoot, env) : existsSync(ws) ? ws : codeRoot;
-    cache.set(codeRoot, dir);
-  }
-  return dir;
+  const env = process.env.STUDIO_WORKSPACE;
+  const ws = path.join(codeRoot, "workspace");
+  return env ? path.resolve(codeRoot, env) : existsSync(ws) ? ws : codeRoot;
 };
 
 // The Python in tools/.venv (bin/ on macOS and Linux, Scripts\ on Windows).

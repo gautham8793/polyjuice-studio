@@ -1,9 +1,10 @@
 # Code repo for Polyjuice Video Studio. The channel's content (projects, library, brand) is not
 # code: it lives in workspace/ and syncs through its own repo (see docs/decisions, DEC-15).
 /workspace/
-/projects/
-/library/
-/brand/
+/projects
+/library
+/brand
+# (on the owner's Mac these three are links into workspace/, for older paths and agents)
 /members.json
 /workspace.json
 /activity/
