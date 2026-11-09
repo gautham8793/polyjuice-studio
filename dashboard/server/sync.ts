@@ -5,7 +5,8 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createReadStream, existsSync } from "node:fs";
-import { copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { blobStore, type BlobStore } from "./blobs";
 import { contentRoot, localDir } from "./paths";
@@ -461,6 +462,35 @@ export async function joinContent(root: string, remote: string) {
   await mkdir(path.dirname(content), { recursive: true });
   await git(path.dirname(content), ["clone", "-q", remote, path.basename(content)]);
   return syncStatus(root);
+}
+
+// Upload, check and download a tiny test file, so a member knows the media store works before syncing.
+export async function testStore(root: string) {
+  const store = await blobStore(root);
+  if (!store) return { ok: false, store: null, steps: ["no media store set up (secrets/r2.json)"] };
+  const steps: string[] = [];
+  const dir = await mkdtemp(path.join(tmpdir(), "polyjuice-store-test-"));
+  try {
+    const data = Buffer.from("Polyjuice Video Studio — media store test\n");
+    const hash = createHash("sha256").update(data).digest("hex");
+    await writeFile(path.join(dir, "up"), data);
+    let t = Date.now();
+    await store.put(hash, path.join(dir, "up"));
+    steps.push(`upload ok (${Date.now() - t} ms)`);
+    t = Date.now();
+    if (!(await store.has(hash))) throw new Error("uploaded file not found");
+    steps.push(`check ok (${Date.now() - t} ms)`);
+    t = Date.now();
+    await store.get(hash, path.join(dir, "down"));
+    if (!(await readFile(path.join(dir, "down"))).equals(data)) throw new Error("downloaded file differs");
+    steps.push(`download ok (${Date.now() - t} ms)`);
+    return { ok: true, store: store.label, steps };
+  } catch (e) {
+    steps.push(e instanceof Error ? e.message : String(e));
+    return { ok: false, store: store.label, steps };
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 }
 
 // ── Check-out locks ───────────────────────────────────────────────────────────────────────

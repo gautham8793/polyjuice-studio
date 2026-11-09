@@ -98,6 +98,7 @@ export const api = {
   setUploaded: (slug: string, uploaded: boolean) => call<TeamUpdate>(`/api/projects/${slug}/team`, post({ uploaded })),
   syncStatus: (fetchRemote = false) => call<SyncStatus>(`/api/sync${fetchRemote ? "?fetch=1" : ""}`),
   runSync: () => call<SyncReport>("/api/sync", post()),
+  testStore: () => call<{ ok: boolean; store: string | null; steps: string[] }>("/api/sync/test-store", post()),
   initSync: (remote?: string) => call<SyncStatus>("/api/sync/init", post({ remote })),
   joinSync: (remote: string) => call<SyncStatus>("/api/sync/join", post({ remote })),
   lock: (slug: string, take: boolean) => call<{ team: Team; version: number }>(`/api/projects/${slug}/lock`, post({ take })),

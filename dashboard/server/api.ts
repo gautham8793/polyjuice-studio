@@ -10,7 +10,7 @@ import type { Plugin } from "vite";
 import { compositionFor } from "../../remotion/src/templates/SceneVideo";
 import { buildPublish, type MusicCredit } from "../src/publish";
 import { contentRoot, python, remotionCli, reveal } from "./paths";
-import { editAllowed, initContent, joinContent, runSync, setLock, syncStatus } from "./sync";
+import { editAllowed, initContent, joinContent, runSync, setLock, syncStatus, testStore } from "./sync";
 import { handleTeamApi, logActivity, readMe, readReview, readTeam, writeTeam } from "./team";
 import { hasRole } from "../src/team";
 import { reviewSummary } from "../src/review";
@@ -93,6 +93,7 @@ async function handleApi(
         return json(res, 500, { error: e instanceof Error ? e.message : String(e) });
       }
     }
+    if (parts[1] === "test-store" && method === "POST") return json(res, 200, await testStore(root));
     if (parts[1] === "init" && method === "POST") {
       if (!hasRole(await readMe(root), "admin")) return json(res, 403, { error: "only an admin sets up sync" });
       const { remote } = await body();

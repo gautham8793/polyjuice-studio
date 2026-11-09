@@ -57,6 +57,12 @@ type Props = {
 export const TeamPanel: React.FC<Props> = ({ sync, onSyncChanged, me, members, titles, onMembers, onSwitch, onOpenProject, onClose }) => {
   const [remote, setRemote] = useState("");
   const [syncBusy, setSyncBusy] = useState(false);
+  const [storeTest, setStoreTest] = useState<string | null>(null);
+  const testStore = async () => {
+    setStoreTest("Testing…");
+    const r = await api.testStore().catch((e) => ({ ok: false, store: null, steps: [String(e)] }));
+    setStoreTest(`${r.ok ? "✓ Works" : "✗ Failed"}: ${r.steps.join(" · ")}`);
+  };
   const setupSync = async (join: boolean) => {
     setError(null);
     setSyncBusy(true);
@@ -119,12 +125,15 @@ export const TeamPanel: React.FC<Props> = ({ sync, onSyncChanged, me, members, t
 
         <section>
           <h3>Sync</h3>
+          <p className="small">
+            Media store: {sync?.store ? <code>{sync.store}</code> : <span className="warn-text">not set: fill in <code>secrets/r2.json</code></span>}{" "}
+            {sync?.store && <button className="link inline small" onClick={testStore}>Test connection</button>}
+            {storeTest && <><br /><span className={storeTest.startsWith("✓") ? "" : "warn-text"}>{storeTest}</span></>}
+          </p>
           {!sync ? null : sync.configured ? (
             <div className="sync-setup">
               <p className="small">
                 Shared repo: {sync.remote ? <code>{sync.remote}</code> : <span className="warn-text">not set: changes stay on this computer</span>}
-                <br />
-                Media store: {sync.store ? <code>{sync.store}</code> : <span className="warn-text">not set: add <code>secrets/r2.json</code></span>}
               </p>
               {!sync.remote && isAdmin && (
                 <div className="members-add">
