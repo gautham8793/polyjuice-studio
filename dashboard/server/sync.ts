@@ -354,8 +354,9 @@ let running = false;
 
 const commitMessage = async (content: string, me: Member) => {
   const files = (await git(content, ["diff", "--cached", "--name-only"])).out.split("\n").filter(Boolean);
-  const slugs = [...new Set(files.filter((f) => f.startsWith("projects/")).map((f) => f.split("/")[1]))];
-  const other = files.length - files.filter((f) => f.startsWith("projects/")).length;
+  const inVideo = (f: string) => f.startsWith("projects/") && f.split("/").length > 2; // not projects/.gitkeep
+  const slugs = [...new Set(files.filter(inVideo).map((f) => f.split("/")[1]))];
+  const other = files.length - files.filter(inVideo).length;
   const parts = [
     slugs.length ? `${slugs.length} video${slugs.length > 1 ? "s" : ""} (${slugs.slice(0, 4).join(", ")}${slugs.length > 4 ? ", …" : ""})` : "",
     other ? `${other} shared file${other > 1 ? "s" : ""}` : "",
