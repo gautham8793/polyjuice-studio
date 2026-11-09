@@ -30,7 +30,9 @@ SILENT_SECONDS = 2.0  # how long a scene with no narration stays on screen
 def voice_key(scene: dict, voice: dict) -> str:
     if scene.get("recording"):
         return f"rec:{scene['recording']}"
-    key = f"{voice.get('voiceId')}@{voice.get('speed', 1.0)}"
+    # float(): "speed": 1 and 1.0 must give the same key ("@1.0", as the dashboard expects),
+    # or every scene looks changed and gets re-voiced
+    key = f"{voice.get('voiceId')}@{float(voice.get('speed', 1.0))}"
     return f"{key}|{scene['ttsText']}" if scene.get("ttsText") else key
 
 
