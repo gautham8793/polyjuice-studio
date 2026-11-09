@@ -14,8 +14,8 @@
 | Outputs | YouTube Shorts / Instagram Reels (9:16, 1080×1920, ~45–60 s) and YouTube long-form (16:9, 1920×1080) |
 | Language | English now; regional Indian languages (Tamil, Hindi) later |
 | Where it runs | The owner's Mac, folder `Documents/G2.0/Video`; dashboard at http://localhost:3200 (`npm run dashboard`) |
-| Overall stage | In daily use. 21 videos published, 3 AI News Shorts in progress (script stage). Dashboard folders and script review were added on 6 Nov 2026 |
-| Current priority | Team studio (DEC-14, DEC-15). Steps 1–3 live on the owner's Mac: content repo `gautham8793/polyjuice-channel` (private) + Cloudflare R2 bucket `polujuice-media`, first sync done 9 Nov 2026. Step 4 (Render & Publish) built; first YouTube upload after the owner adds the Google OAuth client. Next: step 5 (Windows setup, add the two friends as members + repo collaborators) |
+| Overall stage | In daily use as a **team studio** since 9 Nov 2026: two members (Gautham on macOS, Prakash Sivam on Windows on ARM) share one channel through async sync (private GitHub content repo + Cloudflare R2 media). Publishing (YouTube Private + Instagram) from the dashboard by the publisher |
+| Current priority | Dashboard UI/UX improvements (owner, via Codex; handoff `docs/handoffs/2026-11-09_dashboard-ui-ux.md`). Later: second friend (parked), Paste script + Polyjuice Studio MCP (Q9), home page + privacy page to publish the Google OAuth app |
 | Code history | Git, private GitHub [gautham8793/polyjuice-studio](https://github.com/gautham8793/polyjuice-studio) (`main`), first commit `6361082` — 7 Nov 2026. Content is not in it (content repo comes with sync, DEC-15 step 3) |
 
 **Read these status labels literally:**
@@ -91,6 +91,8 @@ The studio has no numbered releases; these are the verified build milestones.
 | 5–6 Nov 2026 | Cinematic template | 16:9 and 9:16 camera-shot scenes; CAR-T long video + 3 Shorts |
 | 6 Nov 2026 | Publishing upgrades | `PUBLISHING.md` rules in the validator; tags + pinned comment; Instagram posting |
 | 6 Nov 2026 | Folders, status and script review | Sidebar folders and smart views; Script tab with approvals |
+| 7–9 Nov 2026 | Team studio (DEC-14, DEC-15) | Code on private GitHub; content in `workspace/` as its own repo; team files (members, owners, per-member reviews, activity); async Sync with R2 media, check-outs and conflict copies; Publish card with YouTube upload; setup for Windows and macOS |
+| 9 Nov 2026 | **First teammate live** | Prakash Sivam installed the studio on his Windows ARM laptop with `setup.ps1` and synced the whole channel (scripts from GitHub, 696 media files from R2). Owner's personal milestone: the studio is now a shared tool |
 
 ## 6. Feature inventory
 
@@ -233,6 +235,7 @@ Status as of 7 November 2026 (from the dashboard: Uploaded is the owner's mark; 
 | 9 Nov 2026 | YouTube connected (Google project `polyjuice-project`: Data API v3 on, Desktop OAuth client "Polyjuice Studio", consent screen in Testing with test user gautham8793@gmail.com; Publish app blocked until a home page + privacy policy exist, so sign-in lasts ~7 days). Build step 5 (`9986cef`…`23a57d4`): `setup.ps1` (Windows, winget), `setup.sh` (macOS, installs only missing tools), `Start Studio.cmd`, pinned `tools/requirements.txt`, `docs/JOINING.md`. Verified on this Mac with a fresh clone from GitHub: setup completed, all Python packages load, content cloned, first sync downloaded all 696 media files from R2 identical to the owner's. `setup.ps1` not yet run on a Windows PC. Note: the first test run installed Homebrew `python@3.12` (and upgraded `sqlite`) on the owner's Mac before the script was changed to skip working tools. |
 | 9 Nov 2026 | First teammate: **Prakash Sivam** (member id `prakash`, editor + reviewer) added in `members.json` (content commit `db5ea79`); GitHub `jonrhaeghar` invited with write access to `polyjuice-channel` and `polyjuice-studio` (pending acceptance). Team mode is now on: editing a video needs Edit (check out). Still to do: Prakash's own R2 token, keys sent privately, first Windows run of `setup.ps1`. Second friend: parked. |
 | 9 Nov 2026 | `setup.ps1` completed on Prakash's PC (Windows on ARM, first real Windows run) after fixes found there: Smart App Control had to be turned off (it blocked Git's libcurl); sign-in via `gh auth login` + `gh auth setup-git` (Git's password prompt can't work); x64 Python on ARM PCs (torch / spaCy parts / gRPC have no Windows ARM wheels), found by its build (`sysconfig`) in the standard install folders; PowerShell 5.1 silenced-stderr quirk; whisper.cpp Windows builds come from build releases, native ARM build on ARM (`644d11b`…`7a38751`). Next: his key files, first Sync. |
+| 9 Nov 2026 | **Milestone: first teammate live.** Prakash's first Sync completed on his Windows ARM PC and everything works (owner confirmed). His key copy `secrets/for-prakash/` deleted from the owner's Mac. |
 
 ## 14. Tracker created — 7 November 2026
 
