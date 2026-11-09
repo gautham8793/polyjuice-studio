@@ -19,6 +19,16 @@
         "cd remotion && npx remotion studio src/index.ts --port 3123 --no-open"
       ],
       "port": 3123
+    },
+    {
+      "name": "remotion-studio-temple",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd remotion && python3 ../tools/render_props.py ../projects/2026-11-temple-brain-blood-flow > .studio-props.json && npx remotion studio src/index.ts --port 3124 --no-open --props=.studio-props.json"
+      ],
+      "port": 3124,
+      "url": "http://localhost:3124"
     }
   ]
 }

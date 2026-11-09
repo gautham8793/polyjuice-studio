@@ -185,7 +185,7 @@ project in the dashboard folder "AI News" (`workspace.json` at the content root,
 
 Project settings: `"template": "newsroom"`, `"theme": "newsroom"`, `"style": "photo-mix"`,
 `"news": { "tag": "AI NEWS", "date": "NOV 4, 2026" }` (the day the story broke),
-`"captions": { "style": "lower-third", "fontSize": 54, "wordsPerGroup": 5, "bottomOffset": 210 }`,
+`"captions": { "style": "lower-third", "fontSize": 54, "wordsPerGroup": 5, "bottomOffset": 380 }`,
 voice `en-IN-Chirp3-HD-Puck` at 1.05.
 
 **Shape:** `hook` → 4–5 `beat` → `comment` → `outro` (silent, `FOLLOW FOR MORE AI NEWS`).
@@ -203,6 +203,12 @@ each scene for the post text (it isn't drawn). Beats add one `widget`:
 | `terminal` | code / commands typing | `title?`, `lines: [{text, cue?, tone?}]` |
 | `checklist` | ticked boxes per column (≤ 25 boxes) | `columns: [{label, done, total, cue?, tone?}]` |
 
+**Never show the same information twice on screen.** The headline (`onScreenText`) gives the
+context ("AI HACKING IS *CHEAP*", "WHY VOTERS ARE *ANGRY*"); the widget carries the numbers and
+details ($1,279 · $70,000). No number, label or phrase may appear in both, and don't repeat a
+number from an earlier scene's widget. Put cues early enough that the last widget line finishes
+typing before the scene ends (not on the final word).
+
 `tone`: `accent` (yellow, default) · `danger` (red) · `up` (green) · `neutral`. Cue words pop each
 part in; pick cues in the first two-thirds of the narration so the last part stays readable, or
 add `"hold": 0.5` to the scene. A `map` scene (India) also works between beats.
@@ -211,9 +217,12 @@ add `"hold": 0.5` to the scene. A `map` scene (India) also works between beats.
 
 Target **110–140 words total** (~45–60 s at the channel's voice speed).
 
-- **Hook (scene 1, ≤ 15 words):** open a curiosity gap in the first 2 seconds. No "Hi guys",
-  no "In this video". Patterns: "X is weirder than you think…", "Number one will shock you",
-  a surprising stat, a direct challenge.
+- **Hook (scene 1, ≤ 22 words, first 4 seconds):** Build a **3-step Curiosity Loop** (see `.claude/skills/video-hook-writer/SKILL.md` for full rules). No "Hi guys", no "In this video":
+  1. **Context Lean:** Establish immediate topic clarity + pull the viewer in via a **benefit/pain point** (how it affects them), **cult hopping** (wrapping an unfamiliar topic in a famous brand, person, or everyday analogy), or **mind-blowing scale** (a sourced stat compared to a familiar benchmark).
+  2. **Scroll-Stop Interjection:** A short contrasting pivot (`"But get this—"`, `"Yet"`, `"Except"`, `"Most people think X, but..."`) that challenges the first assumption.
+  3. **Contrarian Snapback + Immediate Value:** Snap in an unexpected direction (`"It's not Y—the real reason is Z"`) and frontload the first hit of value inside the first 4 seconds.
+  - **Staccato rhythm:** Use short, punchy clauses (4–8 words each) in the hook for maximum word density before expanding sentence length in later scenes.
+  - When pitching a script, draft **3 hook options** (Pain/Benefit, Cult-Hop, Hard Stat + Snapback) so the owner can pick the strongest opener.
 - **Items:** count **down** (`#N` → `#1`), saving the best for `#1`. Each narration 15–25 words:
   `"Number <word>, the <name>." + one striking fact + optional twist.`
 - **Outro (≤ 12 words):** a comment-bait question + "Follow for more."
@@ -231,7 +240,7 @@ reviews and approvals are made by people in the Script tab.
 
 ## 3. On-screen text rules
 
-- Hook `onScreenText`: the title, ALL CAPS, ≤ 7 words, e.g. `*5* WHALES THAT *BREAK* THE RULES`.
+- Hook `onScreenText`: distill the Context Lean into **3–5 bold words** in ALL CAPS (≤ 7 words max), e.g. `*FUTURE* OF HOME DESIGN` or `*5* WHALES THAT *BREAK* RULES`. Use plain, fast-reading category words rather than unfamiliar jargon so viewers grasp the topic in under 1 second, and do not copy the spoken line verbatim.
 - Item `onScreenText`: the single most striking fact as a fragment, ≤ 8 words,
   e.g. `Lives *200+ YEARS*`.
 - Wrap 1–2 key words in `*asterisks*` to color them in the brand accent. Never emphasize
@@ -253,6 +262,7 @@ Every scene has a `visual` object:
 }
 ```
 
+- **Hook visual motion (Scene 1):** Give the opening visual calibrated focal motion in the lower two-thirds of the frame—enough movement or action to catch the eye immediately without chaotic clutter or a static portrait.
 - **photo-mix:** `type: "photo"`. `aiPrompt` = photorealistic, the subject clearly
   identifiable and accurate, end with `vertical 9:16`. Add `searchTerms` for Pexels /
   Wikimedia (plain nouns: "narwhal tusk"). Real photos are preferred for real animals —
@@ -330,7 +340,7 @@ cd remotion && npx remotion render src/index.ts <Listicle|Analogy|Explainer|News
 
 Keep it short:
 - Title, length, item list (`#5 … #1`) — for blueprint explainers, the scene-by-scene beats.
-- The hook line, so the user can judge it.
+- The **3 hook options** (Pain/Benefit, Cult-Hop, Hard Stat + Snapback) and which one was placed in `s1`, so the user can judge or swap it.
 - Any UNVERIFIED / disputed facts you left out or softened.
 - Next step for assets: which scenes need images, pointing at the `aiPrompt` / `searchTerms`
   in `project.json`. For illustrated projects: make each character's reference sheet first
