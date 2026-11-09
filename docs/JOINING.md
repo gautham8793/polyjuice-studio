@@ -11,20 +11,26 @@ space and an hour the first time (most of it is downloads).
 - two small key files: `r2.json` (media storage) and `google-tts.json` (the channel voice)
 
 ### Windows 10 / 11
-1. Open **PowerShell** and install Git and the GitHub app:
-   `winget install --id Git.Git -e` and `winget install --id GitHub.cli -e`, then close PowerShell.
-2. Open a new PowerShell and sign in to GitHub: `gh auth login` (choose GitHub.com → HTTPS → browser).
-3. Download the studio into your Documents folder:
-   `cd $HOME\Documents` then `gh repo clone gautham8793/polyjuice-studio "Polyjuice Studio"`
-4. Run the setup (installs Node.js, Python, FFmpeg, the voice and captions engines; takes a while):
-   `cd "Polyjuice Studio"` then
+1. Accept both GitHub invites (`polyjuice-channel` and `polyjuice-studio`) from the email or
+   github.com/notifications.
+2. Open **PowerShell** (Start → type "PowerShell"). Install Git: `winget install --id Git.Git -e`
+   (if `winget` isn't found, install **App Installer** from the Microsoft Store first).
+   Then **close PowerShell and open a new one**.
+3. Download the studio into a folder **without spaces** in its name:
+   `cd $HOME\Documents` then `git clone https://github.com/gautham8793/polyjuice-studio.git PolyjuiceStudio`.
+   A GitHub sign-in window opens the first time: sign in with the invited account.
+4. Run the setup (installs Node.js, Python, FFmpeg, the voice and captions engines; 20–40 minutes):
+   `cd PolyjuiceStudio` then
    `powershell -ExecutionPolicy Bypass -File .\setup.ps1 -Member <your-member-id>`
-5. Put the two key files Gautham sent into the `secrets` folder inside "Polyjuice Studio".
-6. Double-click **Polyjuice Studio** on your Desktop. The dashboard opens in your browser.
+5. Put the two key files Gautham sent into the `secrets` folder (`explorer secrets` opens it). Check
+   the names are exactly `r2.json` and `google-tts.json` (`dir secrets`), not `r2.json.txt`.
+6. Double-click **Polyjuice Studio** on your Desktop. A black window starts the studio (keep it open)
+   and the dashboard opens in your browser after a few seconds.
 7. Press **Sync** (bottom left). The first sync downloads the videos' images and audio (about 450 MB).
 
 ### macOS
-Steps 1–3 the same with Homebrew (`brew install git gh`), then `./setup.sh <your-member-id>`, add the
+Accept the invites, `git clone https://github.com/gautham8793/polyjuice-studio.git PolyjuiceStudio`, then
+`./setup.sh <your-member-id>`, add the
 two key files to `secrets/`, start with `npm run dashboard` and press **Sync**.
 
 ### Every day
