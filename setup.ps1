@@ -37,11 +37,36 @@ Step "Tools: Git, Node.js, Python 3.12, FFmpeg"
 if (-not (Have winget)) { throw "winget is missing. Install 'App Installer' from the Microsoft Store, then run this again." }
 if (-not (Have git)) { Install "Git.Git" }
 if (-not (Have node)) { Install "OpenJS.NodeJS.LTS" }
+# On ARM PCs (e.g. Snapdragon) the voice tools (torch, spaCy parts, gRPC) only exist for x64, so
+# use x64 Python there; Windows runs it through its built-in x64 emulation.
+$arm = $env:PROCESSOR_ARCHITECTURE -eq "ARM64"
+function Find-Python {
+  # Every installed Python the py launcher knows ("-V:3.12  C:\...\python.exe"); on ARM keep x64 only.
+  foreach ($line in (& py -0p 2>$null)) {
+    if ($line -match "3\.12\S*\s+\*?\s*(\S.*python\.exe)") {
+      $exe = $Matches[1].Trim()
+      $machine = & $exe -c "import platform; print(platform.machine())" 2>$null
+      if (-not $arm -or $machine -eq "AMD64") { return $exe }
+    }
+  }
+  return $null
+}
 $py = $null
-try { $py = & py -3.12 -c "import sys; print(sys.executable)" 2>$null } catch {}
-if (-not $py) { Install "Python.Python.3.12" }
+try { $py = Find-Python } catch {}
+if (-not $py) {
+  if ($arm) {
+    Write-Host "  ARM PC: installing x64 Python 3.12 (the voice tools have no ARM version)"
+    winget install --id Python.Python.3.12 --exact --silent --architecture x64 --accept-source-agreements --accept-package-agreements
+    Refresh-Path
+  } else {
+    Install "Python.Python.3.12"
+  }
+  try { $py = Find-Python } catch {}
+}
 if (-not (Have ffmpeg)) { Install "Gyan.FFmpeg" }
-foreach ($cmd in "git", "node", "npm", "py", "ffmpeg", "ffprobe") {
+if (-not $py) { throw "Python 3.12$(if ($arm) { ' (x64)' }) still isn't found. Close this window, open a new PowerShell and run setup again." }
+Write-Host "  Python: $py"
+foreach ($cmd in "git", "node", "npm", "ffmpeg", "ffprobe") {
   if (-not (Have $cmd)) { throw "$cmd still isn't found. Close this window, open a new PowerShell and run setup again." }
 }
 
@@ -50,7 +75,7 @@ npm ci
 if ($LASTEXITCODE -ne 0) { throw "npm ci failed" }
 
 Step "Python packages (tools\.venv): Kokoro voice, Google TTS, image tools"
-if (-not (Test-Path "tools\.venv\Scripts\python.exe")) { & py -3.12 -m venv tools\.venv }
+if (-not (Test-Path "tools\.venv\Scripts\python.exe")) { & $py -m venv tools\.venv }
 Retry { & tools\.venv\Scripts\python.exe -m pip install --upgrade pip }
 Retry { & tools\.venv\Scripts\python.exe -m pip install -r tools\requirements.txt }
 # spaCy's English model (used by the Kokoro voice): GitHub release, else the official Hugging Face copy.
