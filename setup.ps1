@@ -114,11 +114,19 @@ $env:PYTHONUTF8 = "1"
 Step "Captions engine (whisper.cpp) and its model"
 New-Item -ItemType Directory -Force "tools\bin", "tools\models" | Out-Null
 if (-not (Test-Path "tools\bin\whisper-cli.exe")) {
-  $release = Invoke-RestMethod "https://api.github.com/repos/ggml-org/whisper.cpp/releases/latest"
-  $asset = $release.assets | Where-Object { $_.name -eq "whisper-bin-x64.zip" } | Select-Object -First 1
-  if (-not $asset) { throw "whisper-bin-x64.zip isn't in the latest whisper.cpp release; download it by hand into tools\bin" }
-  $zip = Join-Path $env:TEMP "whisper-bin-x64.zip"
-  $unzip = Join-Path $env:TEMP "whisper-bin-x64"
+  # whisper.cpp publishes Windows builds on build releases ("b5454"), not always on "latest": take the
+  # newest release that has the file. ARM PCs get the native ARM build (no emulation), else x64.
+  $releases = Invoke-RestMethod "https://api.github.com/repos/ggml-org/whisper.cpp/releases?per_page=30"
+  $wanted = if ($arm) { @("whisper-bin-win-cpu-arm64.zip", "whisper-bin-x64.zip") } else { @("whisper-bin-x64.zip") }
+  $asset = $null
+  foreach ($name in $wanted) {
+    $asset = $releases | ForEach-Object { $_.assets } | Where-Object { $_.name -eq $name } | Select-Object -First 1
+    if ($asset) { break }
+  }
+  if (-not $asset) { throw "no Windows build of whisper.cpp found in its recent releases; download whisper-bin-x64.zip by hand and put its files into tools\bin" }
+  Write-Host "  using $($asset.name)"
+  $zip = Join-Path $env:TEMP $asset.name
+  $unzip = Join-Path $env:TEMP "whisper-bin"
   Retry { Invoke-WebRequest $asset.browser_download_url -OutFile $zip }
   Remove-Item $unzip -Recurse -Force -ErrorAction SilentlyContinue
   Expand-Archive $zip $unzip
