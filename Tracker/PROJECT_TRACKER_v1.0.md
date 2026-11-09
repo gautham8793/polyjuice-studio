@@ -36,7 +36,7 @@ The studio turns a topic into a finished, sourced, publish-ready video with as l
 | --- | ---: | --- |
 | Owner | 1 | Everything; the only person who exports, uploads or posts |
 | AI agents (Claude Code, Gemini, Codex) | — | Write research, scripts, scenes and post text by following `AGENTS.md`; never export or post |
-| Members (planned) | 2 more | Windows PCs; co-members of the same channel through async sync (DEC-14, DEC-15) |
+| Members | Prakash Sivam (`prakash`, editor + reviewer, since 9 Nov 2026); one more planned | Windows PCs; co-members of the same channel through async sync (DEC-14, DEC-15) |
 
 Key documents: `PLAN.md` (architecture and history), `AGENTS.md` (rules for every agent; `CLAUDE.md` and `GEMINI.md` point to it), `PUBLISHING.md` (post-text rules), `.claude/skills/new-video/SKILL.md` (topic → `project.json` recipe), `.claude/skills/video-hook-writer/SKILL.md` (3-step Curiosity Loop hook recipe).
 
@@ -231,6 +231,7 @@ Status as of 7 November 2026 (from the dashboard: Uploaded is the owner's mark; 
 | 9 Nov 2026 | Team sync went live: R2 bucket `polujuice-media` working (after fixing the bucket name in `secrets/r2.json`); private content repo `gautham8793/polyjuice-channel` created; first sync in ~17 min: 696 media files (606 unique, 434 MB) to R2, text to GitHub (`fb69a13`); all hashes verified present in R2. |
 | 9 Nov 2026 | Sync progress + resumable, parallel transfers (`d7b8798`). Build step 4, Render & Publish (`a3a458d`): Publish card with checklist (publisher, owner-approved script, export up to date, not behind the team), one confirmed Publish to YouTube (Private, resumable upload) and/or Instagram, recorded in `team.json`, then synced; YouTube connection in Connections. Not yet run against YouTube: waiting for the owner's Google OAuth client (`secrets/youtube-client.json`, placeholder created). Owner choices: one button, full checklist, Private uploads. |
 | 9 Nov 2026 | YouTube connected (Google project `polyjuice-project`: Data API v3 on, Desktop OAuth client "Polyjuice Studio", consent screen in Testing with test user gautham8793@gmail.com; Publish app blocked until a home page + privacy policy exist, so sign-in lasts ~7 days). Build step 5 (`9986cef`…`23a57d4`): `setup.ps1` (Windows, winget), `setup.sh` (macOS, installs only missing tools), `Start Studio.cmd`, pinned `tools/requirements.txt`, `docs/JOINING.md`. Verified on this Mac with a fresh clone from GitHub: setup completed, all Python packages load, content cloned, first sync downloaded all 696 media files from R2 identical to the owner's. `setup.ps1` not yet run on a Windows PC. Note: the first test run installed Homebrew `python@3.12` (and upgraded `sqlite`) on the owner's Mac before the script was changed to skip working tools. |
+| 9 Nov 2026 | First teammate: **Prakash Sivam** (member id `prakash`, editor + reviewer) added in `members.json` (content commit `db5ea79`); GitHub `jonrhaeghar` invited with write access to `polyjuice-channel` and `polyjuice-studio` (pending acceptance). Team mode is now on: editing a video needs Edit (check out). Still to do: Prakash's own R2 token, keys sent privately, first Windows run of `setup.ps1`. Second friend: parked. |
 
 ## 14. Tracker created — 7 November 2026
 
