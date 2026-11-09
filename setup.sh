@@ -9,7 +9,7 @@ CONTENT_REPO="${CONTENT_REPO:-https://github.com/gautham8793/polyjuice-channel.g
 step() { printf '\n== %s\n' "$1"; }
 
 # Retry a command a few times (downloads from GitHub / PyPI sometimes time out).
-retry() { local n; for n in 1 2 3; do "$@" && return 0; echo "  attempt $n failed; retrying in $((n * 10)) s"; sleep $((n * 10)); done; return 1; }
+retry() { local n; for n in 1 2 3 4 5; do "$@" && return 0; [ $n -lt 5 ] && { echo "  attempt $n failed; retrying in $((n * 10)) s"; sleep $((n * 10)); }; done; return 1; }
 
 step "Tools: Git, Node.js, Python 3.12, FFmpeg, whisper.cpp"
 # Only what's missing is installed (Homebrew); tools that already work are left alone.
@@ -28,6 +28,12 @@ step "Python packages (tools/.venv)"
 [ -x tools/.venv/bin/python ] || "$PY" -m venv tools/.venv
 retry tools/.venv/bin/python -m pip install --upgrade pip
 retry tools/.venv/bin/python -m pip install -r tools/requirements.txt
+# spaCy's English model (used by the Kokoro voice): GitHub release, else the official Hugging Face copy.
+SPACY_GH="https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl"
+SPACY_HF="https://huggingface.co/spacy/en_core_web_sm/resolve/main/en_core_web_sm-any-py3-none-any.whl"
+tools/.venv/bin/python -c "import en_core_web_sm" 2>/dev/null \
+  || retry tools/.venv/bin/python -m pip install "$SPACY_GH" \
+  || retry tools/.venv/bin/python -m pip install "$SPACY_HF"
 
 step "Captions model"
 mkdir -p tools/models

@@ -22,13 +22,13 @@ function Install($id) {
 }
 # Run a script block up to 3 times (downloads from GitHub / PyPI sometimes time out).
 function Retry([scriptblock]$Do) {
-  for ($n = 1; $n -le 3; $n++) {
+  for ($n = 1; $n -le 5; $n++) {
     $global:LASTEXITCODE = 0 # cmdlets like Invoke-WebRequest don't set it; native commands do
     try { & $Do; if ($LASTEXITCODE -eq 0) { return } } catch { Write-Host "  $_" }
     Write-Host "  attempt $n failed; retrying in $($n * 10) s" -ForegroundColor Yellow
     Start-Sleep -Seconds ($n * 10)
   }
-  throw "still failing after 3 attempts"
+  throw "still failing after 5 attempts"
 }
 # Write UTF-8 without a byte-order mark (Node's JSON.parse rejects one).
 function Write-Utf8($path, $text) { [IO.File]::WriteAllText((Join-Path $PWD $path), $text) }
@@ -53,6 +53,12 @@ Step "Python packages (tools\.venv): Kokoro voice, Google TTS, image tools"
 if (-not (Test-Path "tools\.venv\Scripts\python.exe")) { & py -3.12 -m venv tools\.venv }
 Retry { & tools\.venv\Scripts\python.exe -m pip install --upgrade pip }
 Retry { & tools\.venv\Scripts\python.exe -m pip install -r tools\requirements.txt }
+# spaCy's English model (used by the Kokoro voice): GitHub release, else the official Hugging Face copy.
+& tools\.venv\Scripts\python.exe -c "import en_core_web_sm" 2>$null
+if ($LASTEXITCODE -ne 0) {
+  try { Retry { & tools\.venv\Scripts\python.exe -m pip install "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" } }
+  catch { Retry { & tools\.venv\Scripts\python.exe -m pip install "https://huggingface.co/spacy/en_core_web_sm/resolve/main/en_core_web_sm-any-py3-none-any.whl" } }
+}
 # Scripts contain emoji and the rupee sign; without this Python on Windows reads them as cp1252.
 [Environment]::SetEnvironmentVariable("PYTHONUTF8", "1", "User")
 $env:PYTHONUTF8 = "1"

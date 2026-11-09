@@ -3,7 +3,7 @@
 kokoro==0.9.4
 misaki[en]==0.9.4
 espeakng-loader==0.2.4
-en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+# en_core_web_sm (spaCy English model) is installed by the setup scripts, with a fallback source.
 google-cloud-texttospeech==2.38.0
 soundfile==0.14.0
 numpy>=2.0
