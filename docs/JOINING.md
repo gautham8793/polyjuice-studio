@@ -42,11 +42,6 @@ two key files to `secrets/`, start with `npm run dashboard` and press **Sync**.
 - Studio update available? In the studio folder: `git pull`, then run setup again.
 
 ### If something goes wrong
-- *"An Application Control policy has blocked this file"* (e.g. `libcurl-4.dll` during `git clone`):
-  Windows 11 **Smart App Control** is blocking unsigned programs. It will also block parts of the
-  studio (captions, the video renderer). Turn it off in **Windows Security → App & browser control →
-  Smart App Control settings → Off** (it can only be turned back on by resetting Windows; Defender
-  antivirus stays on). On a work-managed PC this is company policy: ask IT.
 - *"isn't a member yet"*: Gautham adds you in **Team & activity**, presses **Sync**; you run setup again.
 - *GitHub sign-in fails / repository not found*: accept the invite to `polyjuice-channel` first.
 - *Sync says "no blob store"*: `secrets/r2.json` is missing or still has placeholders.
