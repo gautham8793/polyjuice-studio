@@ -25,6 +25,9 @@ export const Preview = forwardRef<PlayerRef, Props>(({ project, timeline, projec
       compositionHeight={height}
       controls
       clickToPlay
+      // voice + music + several sound effects per shot, and two shots overlap during cinematic
+      // crossfades: the default of 5 audio tags crashes the preview
+      numberOfSharedAudioTags={16}
       acknowledgeRemotionLicense
       style={{ width: "100%", aspectRatio: `${width} / ${height}`, borderRadius: 14, overflow: "hidden" }}
     />

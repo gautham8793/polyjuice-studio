@@ -195,6 +195,21 @@ select:focus { outline: none; border-color: var(--accent); }
 .warn-card ul { margin: 0; padding-left: 18px; color: var(--warn); font-size: 13px; line-height: 1.7; }
 .post-title { margin: 0; font-weight: 750; font-size: 16px; }
 .post-text { margin: 0; white-space: pre-wrap; font-family: inherit; font-size: 13px; line-height: 1.55; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; max-height: 320px; overflow: auto; }
+.accordion { padding: 0; gap: 0; }
+.accordion > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: var(--radius); }
+.accordion > summary::-webkit-details-marker { display: none; }
+.accordion > summary:hover { background: var(--panel-2); }
+.accordion > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.accordion-status { flex: 1; text-align: right; font-size: 12px; color: var(--muted); }
+.accordion-status .counter { margin-left: 2px; }
+.chevron { color: var(--muted); transition: transform 0.15s; }
+.accordion[open] > summary .chevron { transform: rotate(180deg); }
+.accordion[open] > summary { border-bottom: 1px solid var(--border); border-radius: var(--radius) var(--radius) 0 0; }
+.accordion-body { display: flex; flex-direction: column; gap: 12px; padding: 14px 16px 16px; }
+.label-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.as-posted > summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--muted); padding: 4px 0; }
+.as-posted[open] > summary { margin-bottom: 8px; }
+.as-posted .card-head { margin-bottom: 8px; }
 .counter { font-size: 11px; color: var(--muted); font-weight: 500; margin-left: 6px; }
 .counter.over { color: var(--error); font-weight: 700; }
 .export-row { display: flex; gap: 14px; align-items: flex-start; }

@@ -434,6 +434,14 @@ async function handleApi(
     const scene = project.scenes.find((s: { id: string }) => s.id === sceneId);
     if (!scene) return json(res, 404, { error: "no such scene" });
     scene.visual = { ...scene.visual, asset: file, ...meta };
+    // Cinematic scenes draw their picture from shot.layers, not visual.asset: the new image
+    // becomes the shot's full-frame background (cut-out layers on top stay as they are).
+    if (scene.shot) {
+      const layers: { src: string; fill?: boolean }[] = scene.shot.layers ?? [];
+      const bg = layers.find((l) => l.fill);
+      if (bg) bg.src = file;
+      else scene.shot.layers = [{ src: file, fill: true }, ...layers];
+    }
     await writeJson(projectPath, project);
     return json(res, 200, { project, version: await projectVersion(dir) });
   }
