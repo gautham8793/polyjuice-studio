@@ -15,7 +15,7 @@
 | Language | English now; regional Indian languages (Tamil, Hindi) later |
 | Where it runs | The owner's Mac, folder `Documents/G2.0/Video`; dashboard at http://localhost:3200 (`npm run dashboard`) |
 | Overall stage | In daily use. 21 videos published, 3 AI News Shorts in progress (script stage). Dashboard folders and script review were added on 6 Nov 2026 |
-| Current priority | Team studio (DEC-14, DEC-15). Steps 1–2 done (Git + Windows-ready code; team files). Open from step 1: move content into `workspace/`, Windows test run. Next: step 3 — content repo, R2 sync, locks |
+| Current priority | Team studio (DEC-14, DEC-15). Steps 1–3 live on the owner's Mac: content repo `gautham8793/polyjuice-channel` (private) + Cloudflare R2 bucket `polujuice-media`, first sync done 9 Nov 2026. Step 4 (Render & Publish) built; first YouTube upload after the owner adds the Google OAuth client. Next: step 5 (Windows setup, add the two friends as members + repo collaborators) |
 | Code history | Git, private GitHub [gautham8793/polyjuice-studio](https://github.com/gautham8793/polyjuice-studio) (`main`), first commit `6361082` — 7 Nov 2026. Content is not in it (content repo comes with sync, DEC-15 step 3) |
 
 **Read these status labels literally:**
@@ -38,7 +38,7 @@ The studio turns a topic into a finished, sourced, publish-ready video with as l
 | AI agents (Claude Code, Gemini, Codex) | — | Write research, scripts, scenes and post text by following `AGENTS.md`; never export or post |
 | Members (planned) | 2 more | Windows PCs; co-members of the same channel through async sync (DEC-14, DEC-15) |
 
-Key documents: `PLAN.md` (architecture and history), `AGENTS.md` (rules for every agent; `CLAUDE.md` and `GEMINI.md` point to it), `PUBLISHING.md` (post-text rules), `.claude/skills/new-video/SKILL.md` (topic → `project.json` recipe).
+Key documents: `PLAN.md` (architecture and history), `AGENTS.md` (rules for every agent; `CLAUDE.md` and `GEMINI.md` point to it), `PUBLISHING.md` (post-text rules), `.claude/skills/new-video/SKILL.md` (topic → `project.json` recipe), `.claude/skills/video-hook-writer/SKILL.md` (3-step Curiosity Loop hook recipe).
 
 ## 3. Agreed requirements
 
@@ -51,7 +51,7 @@ These are requirements, not claims that every detail is enforced in code.
 | REQ-03 | Real people appear only in real, licensed photos with their identity checked. Never AI likenesses of real people. | Rule; portrait library `library/assets/people/people.json`; validator checks portraits have a license |
 | REQ-04 | News videos: facts AP-called or confirmed by 2+ outlets, neutral wording, and 🔁 facts re-checked right before export. | Rule (`PLAN.md` News series); manual |
 | REQ-05 | Post text follows `PUBLISHING.md`: titles ≤ 100 characters with the hook first, 1,500–3,000-character descriptions of real content, 5–8 hashtags (never #cart or #Shorts), plus tags and a pinned comment. | Enforced by `tools/validate_project.py`; Export refuses to run on errors |
-| REQ-06 | AI agents never run Export, re-export, upload or post. They ask the owner every time; only the owner clicks Post. When checking the publish UI, agents never click inside the confirm box. | Rule in `AGENTS.md` step 5 and agent memory |
+| REQ-06 | AI agents never run Export, re-export, upload or post. They ask the owner every time; only the owner clicks Post. When checking the publish UI, agents never click inside the confirm box. | Rule in `AGENTS.md` step 6 and agent memory |
 | REQ-07 | Script first: new videos stop at research + script (Draft) until the owner approves the script in the dashboard; assets, voice and full post text come after. | Script tab with per-scene and whole-script approval (6 Nov 2026) |
 | REQ-08 | Prefer free, local tools. Paid services are added only when the owner agrees to each one. | Kokoro, whisper.cpp, Remotion and FFmpeg are local; Google Cloud TTS, the Instagram Graph API and a GCS bucket were added by the owner |
 | REQ-09 | Credentials stay in `secrets/` on the machine, are read only by the local server, and never appear in docs, this tracker, memory or the browser. | `dashboard/server/secrets.ts`; owner-only files |
@@ -68,6 +68,8 @@ These are requirements, not claims that every detail is enforced in code.
 | Instagram publishing | Configured | Graph API via Facebook Login; Page token in `secrets/instagram.json`; videos handed over through a private GCS bucket with expiring signed URLs (`secrets/gcs-reels.json`, set up by `tools/setup_reels_bucket.sh`) |
 | YouTube | Manual | The owner uploads from `out/<slug>/` (mp4, cover, youtube.txt, tags.txt, pinned-comment.txt) |
 | AI images | Manual / Figma | Gemini or ChatGPT by copied prompt, or Figma file "Video Studio — Character Sheets" (`uUQCDmP84YwhxS2JnUCkJO`) with `generate_image`; `tools/cutout.py` for transparent cut-outs. Figma Weave video needs a paid plan |
+| Content repo (sync) | Completed — 9 Nov 2026 | Private GitHub `gautham8793/polyjuice-channel` (`main`), the `workspace/` folder: 291 text files; first commit `fb69a13` |
+| Media store (sync) | Completed — 9 Nov 2026 | Cloudflare R2 bucket `polujuice-media` (spelled with a "u"), key in `secrets/r2.json`; 606 unique media files / 434 MB uploaded and checked against the local fingerprints; dashboard "Test connection" passes |
 | Shared memory | Completed — 7 Nov 2026 | Project "Polyjuice Video Studio" in my_first_tube; syncs from this tracker and `Tracker/open-questions.md` |
 | This tracker | Version 1.0 | Created 7 Nov 2026 |
 
@@ -94,7 +96,7 @@ The studio has no numbered releases; these are the verified build milestones.
 
 | Feature | What is present | What still needs checking or work |
 | --- | --- | --- |
-| `/new-video` skill | Research → script → scenes → visual prompts → `project.json` | Script-first stop is a memory rule; not yet written into the skill |
+| `/new-video` skill | Research → script → scenes → visual prompts → `project.json`, plus 3-step Curiosity Loop hook formula (`.claude/skills/video-hook-writer/SKILL.md`) | Script-first stop is a memory rule; not yet written into the skill |
 | Templates | listicle, analogy, explainer, cinematic (`remotion/src/templates/SceneVideo.tsx` renders all) | Long-form chapters exist only in cinematic |
 | Styles + brand | photo-mix / illustrated; six theme presets; caption and channel-name styles | — |
 | Dashboard: Scenes | Scene cards, image search (Wikimedia / Pexels), upload, AI prompt copy, own-voice recording, Theme, Channel & captions, Sound, Characters panels, live preview | — |
@@ -136,6 +138,9 @@ The studio has no numbered releases; these are the verified build milestones.
 | DEC-13 | Agent rules live in the repo | `AGENTS.md` is the entry point for every agent; `PUBLISHING.md` and the `/new-video` skill hold the detail; this tracker records what was agreed | Agreed — 6 Nov 2026 |
 | DEC-14 | Team studio for the shared channel | Three members (Gautham + two friends on Windows) work on The Polyjuice Project together. Stage 1 now: everyone works locally and offline, a Sync button exchanges work asynchronously, and a publisher renders locally and uploads. Stage 2 later: live cloud hub (realtime scripts, comments, presence). Stage 3 later: fully cloud studio. Stage 1 must keep the formats and boundaries stages 2 and 3 need | Agreed — 7 Nov 2026 (direction; supersedes the "own copy, own channel" proposal) |
 | DEC-15 | Async sync design (stage 1) | Code repo and content repo split (`STUDIO_WORKSPACE`); content text in a private Git repo, media as SHA-256 blobs in Cloudflare R2; one concern per file (`project.json`, `review.json`, `team.json`, `media.json`, `workspace.json`, `activity/<member>.jsonl`); member IDs in `members.json`; check-out locks via atomic push; key-based merges; Render & Publish for publishers with YouTube + Instagram upload; same `/api/sync` boundary later backed by a realtime database. Script intake: Paste script first, then a local Polyjuice Studio MCP (no export/publish tools). Media on Cloudflare R2. Full design: `docs/decisions/2026-11-07_team-async-sync-design.md` | Agreed — 7 Nov 2026 |
+| DEC-16 | Script first, for every agent | A new video starts as research + script only (narration, on-screen text, image prompts with `asset: null`). No images, voice, music or renders until the owner approves the script in the dashboard Script tab (`review.json`); scenes whose narration changes after approval are approved again before re-voicing. Added to `AGENTS.md` step 2 after a Gemini-made video skipped the approval | Agreed — 8 Nov 2026 |
+
+| DEC-17 | Temple product visual fidelity | Use the owner's downloaded Temple website assets for product shots. The five `web-*.png` files in `library/assets/Temple_Cerebral_Blood_Flow_Images/Downloaded assests/` are the actual product colour variants; match their rounded bean shape and the placement-reference portrait's upright temple position in generated illustrations. Figma file `uUQCDmP84YwhxS2JnUCkJO`: corrected illustrations in section `121:2`; original-product shots in `135:2`. Corrections saved under `out/temple-figma-2026-11-08/`. Applied to the dashboard video on 8 Nov 2026 via `apply_figma_visuals.py`; preview verified with original product variants, corrected illustrations and evidence graphics. | Agreed — 8 Nov 2026 |
 
 ## 9. Known gaps and risks
 
@@ -205,6 +210,7 @@ Status as of 7 November 2026 (from the dashboard: Uploaded is the owner's mark; 
 | 2026-11-ai-news-948-linux-hacks | AI Found 948 Ways to Take Over Linux | explainer / 9:16 | Script stage (AI News) |
 | 2026-11-ai-news-ai-crash-india | America Voted Against AI. India Gained. | explainer / 9:16 | Script stage (AI News) |
 | 2026-11-ai-news-ai-slacked-on-safety | OpenAI's AI Quietly Slacked on Safety Work | explainer / 9:16 | Script stage (AI News) |
+| 2026-11-temple-brain-blood-flow | Temple: Can a Sensor on Your Skin Track Brain Blood Flow? | cinematic / 16:9 | Full script draft ready, 8 Nov; 43 scenes / 1,138 words; owner approval pending |
 
 ## 13. Tracker change log
 
@@ -217,7 +223,37 @@ Status as of 7 November 2026 (from the dashboard: Uploaded is the owner's mark; 
 | 7 Nov 2026 | Q9 agreed (Paste script first, then the Polyjuice Studio MCP). DEC-15 async sync design agreed; next tracker version (v1.1) due when build step 1 is verified. |
 | 7 Nov 2026 | Build step 1: code under Git and pushed to private GitHub (`6361082`); content-root setting; Windows fixes. Verified on the Mac: validator and render props by slug, one-scene voice + captions through `captions.py`, a Remotion still rendered from the content root, dashboard API, images, audio and preview. Moving content into `workspace/` deferred by the owner. |
 | 7 Nov 2026 | Build step 2 (team files): `members.json`, `.studio/me.json`, `workspace.json`, per-project `team.json` (owner, uploads, Instagram posts) and `review.json` (one review per member; owner approves), `activity/<member>.jsonl`. Data migrated by `tools/migrate_team.py` (21 uploads, 9 Instagram posts, 3 approvals kept; backups in `.studio/migration-backup/`). Dashboard: who-are-you, Team & activity panel, owner picker, per-member reviews. Verified in the browser with a test member and a test project, both removed. |
+| 7 Nov 2026 | Hook workflow added: created `.claude/skills/video-hook-writer/SKILL.md` and updated `.claude/skills/new-video/SKILL.md` and `AGENTS.md` with the 3-step Curiosity Loop (`Context Lean → Scroll-Stop Interjection → Contrarian Snapback`), staccato rhythm, 3–5 word visual title rules, and 3 hook variations per script. |
+| 8 Nov 2026 | Temple continuation: full sourced script draft (43 scenes, 1,138 words), reproducible builder, corrected TTS wording and publishing copy; validator clean; browser Script review verified. Awaiting owner approval; no media generation or export. Details in §15 and the project handoff. |
+| 8 Nov 2026 | DEC-16 script-first rule added to `AGENTS.md` (step 2; later steps renumbered). Added `docs/playbooks/long-form-cinematic.md` (how the 8-minute CAR-T video was made) and the per-project `HANDOFF.md` convention, both linked from `AGENTS.md`. |
+| 8 Nov 2026 | Removed all per-scene sound effects (`shot.sfx`: whoosh, shimmer/chime, click/tick, heartbeat/monitor-beep, hit, rumble, riser, pop, ventilator) from `2026-11-checkpoint-inhibitors` and `2026-11-temple-brain-blood-flow` (`project.json` and `stage_shots.py`) at the owner's request; both projects validated clean. |
+| 9 Nov 2026 | Content moved into `workspace/` (links at the old paths on the Mac); content root no longer cached (`792f2a5`). Build step 3, team sync (`842fd5e`): content Git repo + SHA-256 media manifests + blob store (R2 or folder), Sync button, key-based merges and conflict copies, check-out locks with read-only view. Verified with two simulated members on this Mac (local remote + folder store): join and full media download, locks, edits both ways, five concurrent-conflict cases converging identically, deletion. R2 untested until the owner's Cloudflare bucket exists; the content repo on GitHub is not created yet. |
+| 9 Nov 2026 | Team sync went live: R2 bucket `polujuice-media` working (after fixing the bucket name in `secrets/r2.json`); private content repo `gautham8793/polyjuice-channel` created; first sync in ~17 min: 696 media files (606 unique, 434 MB) to R2, text to GitHub (`fb69a13`); all hashes verified present in R2. |
+| 9 Nov 2026 | Sync progress + resumable, parallel transfers (`d7b8798`). Build step 4, Render & Publish (`a3a458d`): Publish card with checklist (publisher, owner-approved script, export up to date, not behind the team), one confirmed Publish to YouTube (Private, resumable upload) and/or Instagram, recorded in `team.json`, then synced; YouTube connection in Connections. Not yet run against YouTube: waiting for the owner's Google OAuth client (`secrets/youtube-client.json`, placeholder created). Owner choices: one button, full checklist, Private uploads. |
+| 9 Nov 2026 | YouTube connected (Google project `polyjuice-project`: Data API v3 on, Desktop OAuth client "Polyjuice Studio", consent screen in Testing with test user gautham8793@gmail.com; Publish app blocked until a home page + privacy policy exist, so sign-in lasts ~7 days). Build step 5 (`9986cef`…`23a57d4`): `setup.ps1` (Windows, winget), `setup.sh` (macOS, installs only missing tools), `Start Studio.cmd`, pinned `tools/requirements.txt`, `docs/JOINING.md`. Verified on this Mac with a fresh clone from GitHub: setup completed, all Python packages load, content cloned, first sync downloaded all 696 media files from R2 identical to the owner's. `setup.ps1` not yet run on a Windows PC. Note: the first test run installed Homebrew `python@3.12` (and upgraded `sqlite`) on the owner's Mac before the script was changed to skip working tools. |
 
 ## 14. Tracker created — 7 November 2026
 
 The project reference started at v1.0, modelled on the BoutiqueOS tracker. Earlier history is summarised in §5 and kept in full in `PLAN.md`.
+
+## 15. Temple long-form continuation — in progress, 8 November 2026
+
+Requested: read `AGENTS.md` and the Temple `HANDOFF.md`, then continue the video. Scope: finish the full sourced long-form script and a reproducible scene plan, fix the narration/TTS wording mismatch, and validate the draft. The project has no `review.json`; script approval is still required under DEC-16 before new images, voice, music or renders. Existing audio and images will be retained. No approval will be written by an agent.
+
+### Verified result
+
+Full draft now in `projects/2026-11-temple-brain-blood-flow/script.md` and `project.json`; 43 scenes, 1,138 narration words, six chapters, 42.1 seconds planned holds. `research.md` maps R1–R13 to scenes and post claims, distinguishes primary evidence from inference, and records TD-NIRS full-text access limits. The script treats the studies fairly and does not equate correlation with accuracy, autoregulation with perfectly constant flow, or superficial anatomy with proof indirect sensing is impossible. Original Part 1 project/research saved in `drafts/`; original media and timeline retained unchanged. New/rewritten shots are provisional existing-image placeholders, not complete visuals.
+
+Checks: `python3 tools/validate_project.py projects/2026-11-temple-brain-blood-flow` → `43 scenes, 1138 words, ~484s — OK` with no warnings/errors; builder rerun is byte-identical; scene IDs unique; no TTS word substitutions or narration digits. Browser Script tab shows 1,138 words / 43 scenes / 0 approved (`drafts/script-review-2026-11-08.png`). Owner must approve before new media; no `review.json` created, voice generated, render, Export or upload. Runtime/chapters are not measured yet. No new production or architecture decision was approved during this work.
+
+## 16. Temple voice and visuals — in progress, 8 November 2026
+
+Owner reports approval in the dashboard and requests voice and visuals. Verified `review.json`: approved by `gautham`, script hash `20465672`, all 43 scene hashes current. Approved narration will be preserved. Scope: generate Puck narration/captions, replace provisional shots with motion and scientifically qualified visuals, verify timing and previews. Prior media and project backed up under the project `drafts/pre-production-2026-11-08/`. No Export or publishing.
+
+## 16. Temple visual rollback — completed, 8 November 2026
+
+At the owner’s request, restored `visual` and `shot` for all 43 scenes from the pre-production snapshot. Generated SVG diagrams, their builder and visual review stills archived under the project’s `drafts/visuals-undone-2026-11-08/`. Approved narration and audio retained. Validator passes with no warnings/errors. Current visuals are draft placeholders; do not reinstate the rejected diagrams.
+
+## 17. Sound effects removed from Checkpoint Inhibitors and Temple — completed, 8 November 2026
+
+At the owner's request, removed all per-shot sound effects (`shot.sfx`: `whoosh`, `shimmer`, `click`, `tick`, `heartbeat`, `monitor-beep`, `hit`, `rumble`, `riser`, `pop`, `ventilator`) from `projects/2026-11-checkpoint-inhibitors/project.json` (10 scenes) and `projects/2026-11-temple-brain-blood-flow/project.json` + `stage_shots.py` (42 staged scenes), and refreshed `remotion/.studio-props.json`. Validated both projects with `tools/validate_project.py` (0 errors).

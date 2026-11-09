@@ -13,3 +13,9 @@
 | Q7 | Google voices: one shared channel key, or each member's own key? | One shared channel key (consistent voice, one bill), limited to Text-to-Speech; Kokoro stays the free default | **Agreed — 7 Nov 2026** |
 | Q8 | Where do media files sync: Cloudflare R2 or Google Drive? | Cloudflare R2 for the studio's media sync, behind a storage interface (Google Drive via API stays possible later); optionally a shared Drive folder as an archive of finished videos. Comparison in the design doc §15 | **Agreed — 7 Nov 2026** |
 | Q9 | How do scripts written in ChatGPT, Claude or Gemini reach the studio? | (a) "Paste script" in the dashboard, with a simple Markdown format, for any app. (b) A local Polyjuice Studio MCP server inside the dashboard, connected like my_first_tube: `send_script`, `get_rules`, `list_projects`, `get_script`, `get_review_comments`, `validate`; no export/publish tools. See design doc §14. Build (a) first, then (b) | **Agreed — 7 Nov 2026** |
+
+## Project review pending — 8 November 2026
+
+| # | Question | Proposal | Status |
+|---|---|---|---|
+| Q10 | Temple full film: is the expanded narration and provisional hook A approved for production? | Review the 43-scene / 1,138-word draft in the dashboard Script tab; three hook alternatives are in `projects/2026-11-temple-brain-blood-flow/script.md`. Owner approval is recorded in the dashboard before images, voice, music or renders. | Pending owner script review — 8 Nov 2026 |
