@@ -73,6 +73,7 @@ export type SyncStatus = {
   behind: number | null; // commits from others not yet pulled (after the last fetch)
   lastSyncedAt: string | null;
   running: boolean;
+  progress: SyncProgress | null; // while running
 };
 
 // ── Git ─────────────────────────────────────────────────────────────────────────────────────
@@ -179,6 +180,34 @@ const writeManifest = async (content: string, name: string, m: Manifest) => {
   await writeFile(path.join(content, name), JSON.stringify({ files }, null, 2) + "\n");
 };
 
+// ── Progress ──────────────────────────────────────────────────────────────────────────────
+// What a running sync is doing, for the Sync button ("Uploading 120 of 606").
+export type SyncProgress = { stage: string; done: number; total: number };
+let progress: SyncProgress | null = null;
+const setProgress = (stage: string, done = 0, total = 0) => {
+  progress = { stage, done, total };
+};
+
+const TRANSFERS = 4; // media files sent or fetched at the same time
+
+// Run `work` over `items`, a few at a time. After the first failure no new item starts, and the
+// ones already running finish before the error is passed on, so saved progress is complete.
+async function pool<T>(items: T[], work: (item: T) => Promise<void>) {
+  let next = 0;
+  let failed: unknown = null;
+  const worker = async () => {
+    while (!failed && next < items.length) {
+      try {
+        await work(items[next++]);
+      } catch (e) {
+        failed ??= e;
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(TRANSFERS, items.length) }, worker));
+  if (failed) throw failed;
+}
+
 // Record my media: new or changed files get a manifest entry, files I deleted lose theirs.
 // A listed file that never existed here is a download still to come, not a deletion.
 async function recordMedia(root: string, content: string, me: Member) {
@@ -187,8 +216,10 @@ async function recordMedia(root: string, content: string, me: Member) {
   const local = new Set(await walkMedia(content));
   const now = new Date().toISOString();
   let changed = 0;
+  let checked = 0;
 
   for (const rel of local) {
+    setProgress("Checking media", checked++, local.size);
     const s = await stat(path.join(content, rel));
     const cached = index[rel];
     const sha256 = cached && cached.size === s.size && cached.mtimeMs === s.mtimeMs ? cached.sha256 : await sha256File(path.join(content, rel));
@@ -217,19 +248,34 @@ async function recordMedia(root: string, content: string, me: Member) {
   return changed;
 }
 
+// Upload what the store doesn't have yet. Progress is saved as it goes, so an interrupted sync
+// (closed laptop, dropped Wi-Fi) picks up where it stopped instead of starting over.
 async function uploadMedia(root: string, content: string, store: BlobStore, log: string[]) {
   const uploaded = new Set(await readState<string[]>(root, "uploaded.json", []));
   const index = await readState<Record<string, IndexEntry>>(root, "media-index.json", {});
+  const todo = new Map<string, string>(); // sha256 → one local file with that content
+  for (const [rel, e] of Object.entries(index)) if (!uploaded.has(e.sha256) && !todo.has(e.sha256)) todo.set(e.sha256, rel);
   let count = 0;
-  for (const [rel, e] of Object.entries(index)) {
-    if (uploaded.has(e.sha256)) continue;
-    if (!(await store.has(e.sha256))) {
-      await store.put(e.sha256, path.join(content, rel));
-      count++;
-    }
-    uploaded.add(e.sha256);
+  let done = 0;
+  let lastSave = Date.now();
+  const save = () => writeState(root, "uploaded.json", [...uploaded]);
+  setProgress("Uploading media", 0, todo.size);
+  try {
+    await pool([...todo], async ([sha, rel]) => {
+      if (!(await store.has(sha))) {
+        await store.put(sha, path.join(content, rel));
+        count++;
+      }
+      uploaded.add(sha);
+      setProgress("Uploading media", ++done, todo.size);
+      if (Date.now() - lastSave > 3000) {
+        lastSave = Date.now();
+        await save();
+      }
+    });
+  } finally {
+    await save();
   }
-  await writeState(root, "uploaded.json", [...uploaded]);
   if (count) log.push(`uploaded ${count} media file${count > 1 ? "s" : ""} to ${store.label}`);
   return count;
 }
@@ -239,27 +285,41 @@ async function uploadMedia(root: string, content: string, store: BlobStore, log:
 async function applyMedia(root: string, content: string, store: BlobStore | null, before: Map<string, Manifest>, me: Member, report: SyncReport) {
   const index = await readState<Record<string, IndexEntry>>(root, "media-index.json", {});
   const after = await readManifests(content);
+  const wanted: { name: string; key: string; rel: string; sha256: string }[] = [];
   for (const [name, m] of after) {
     for (const [key, e] of Object.entries(m.files)) {
       const rel = relOf(name, key);
+      if (existsSync(path.join(content, rel)) && index[rel]?.sha256 === e.sha256) continue;
+      if (!store) report.log.push(`missing media (no blob store set up): ${rel}`);
+      else wanted.push({ name, key, rel, sha256: e.sha256 });
+    }
+  }
+  let done = 0;
+  let lastSave = Date.now();
+  const save = () => writeState(root, "media-index.json", index);
+  if (wanted.length) setProgress("Downloading media", 0, wanted.length);
+  try {
+    await pool(wanted, async ({ name, key, rel, sha256 }) => {
       const file = path.join(content, rel);
-      if (existsSync(file) && index[rel]?.sha256 === e.sha256) continue;
-      if (!store) {
-        report.log.push(`missing media (no blob store set up): ${rel}`);
-        continue;
-      }
       const mine = before.get(name)?.files[key];
-      if (existsSync(file) && mine && mine.by === me.id && mine.sha256 !== e.sha256) {
+      if (existsSync(file) && mine && mine.by === me.id && mine.sha256 !== sha256) {
         // Both changed the same file and theirs won: keep mine next to it.
         const ext = path.extname(file);
         await copyFile(file, `${file.slice(0, -ext.length)}.conflict-${me.id}${ext}`);
         report.conflicts.push(rel);
       }
-      await store.get(e.sha256, file);
+      await store!.get(sha256, file);
       const s = await stat(file);
-      index[rel] = { size: s.size, mtimeMs: s.mtimeMs, sha256: e.sha256 };
+      index[rel] = { size: s.size, mtimeMs: s.mtimeMs, sha256 };
       report.downloaded++;
-    }
+      setProgress("Downloading media", ++done, wanted.length);
+      if (Date.now() - lastSave > 3000) {
+        lastSave = Date.now();
+        await save();
+      }
+    });
+  } finally {
+    await save();
   }
   for (const [name, m] of before) {
     for (const [key, e] of Object.entries(m.files)) {
@@ -272,7 +332,7 @@ async function applyMedia(root: string, content: string, store: BlobStore | null
       }
     }
   }
-  await writeState(root, "media-index.json", index);
+  await save();
 }
 
 // ── Merging ───────────────────────────────────────────────────────────────────────────────
@@ -396,6 +456,7 @@ export async function runSync(root: string): Promise<SyncReport> {
     if (store) report.uploaded = await uploadMedia(root, content, store, report.log);
     else report.log.push("no blob store set up: media stays on this computer");
 
+    setProgress("Saving changes");
     await git(content, ["add", "-A"]);
     if ((await git(content, ["diff", "--cached", "--quiet"], true)).code !== 0) {
       report.committed = await commitMessage(content, me);
@@ -406,6 +467,7 @@ export async function runSync(root: string): Promise<SyncReport> {
     if (await remoteUrl(content)) {
       const br = await branch(content);
       for (let attempt = 0; ; attempt++) {
+        setProgress("Exchanging with the team");
         await pullMerge(content, me, report);
         const push = await git(content, ["push", "-u", "origin", br], true);
         if (push.code === 0) break;
@@ -421,6 +483,7 @@ export async function runSync(root: string): Promise<SyncReport> {
     return report;
   } finally {
     running = false;
+    progress = null;
   }
 }
 
@@ -429,8 +492,10 @@ export async function syncStatus(root: string, fetch = false): Promise<SyncStatu
   const configured = existsSync(path.join(content, ".git"));
   const store = await blobStore(root);
   const { lastSyncedAt = null } = await readState<{ lastSyncedAt?: string }>(root, "sync-state.json", {});
-  const base = { configured, store: store?.label ?? null, me: await readMe(root), lastSyncedAt, running };
+  const base = { configured, store: store?.label ?? null, me: await readMe(root), lastSyncedAt, running, progress };
   if (!configured) return { ...base, remote: null, pending: 0, behind: null };
+  // While a sync runs, answer from memory: git is busy, and the button only needs the progress.
+  if (running) return { ...base, remote: null, pending: 0, behind: null };
   const remote = await remoteUrl(content);
   const pending = (await git(content, ["status", "--porcelain"])).out.split("\n").filter(Boolean).length;
   let behind: number | null = null;

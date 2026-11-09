@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { api, type SyncReport, type SyncStatus } from "./api";
+import { useEffect, useState } from "react";
+import { api, type SyncProgress, type SyncReport, type SyncStatus } from "./api";
 
 const ago = (iso: string | null) => {
   if (!iso) return "never";
@@ -28,6 +28,13 @@ export const SyncButton: React.FC<{
   onDone: (r: SyncReport | null, error?: string) => void;
 }> = ({ status, onStart, onDone }) => {
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<SyncProgress | null>(null);
+  const active = busy || !!status?.running; // also a sync started from another tab
+  useEffect(() => {
+    if (!active) return setProgress(null);
+    const t = window.setInterval(() => api.syncStatus().then((s) => setProgress(s.progress)).catch(() => {}), 750);
+    return () => window.clearInterval(t);
+  }, [active]);
   if (!status?.configured) return null;
   const run = async () => {
     setBusy(true);
@@ -42,14 +49,25 @@ export const SyncButton: React.FC<{
   };
   const waiting = (status.behind ?? 0) > 0;
   return (
-    <button className={`sync-button ${waiting || status.pending ? "attention" : ""}`} onClick={run} disabled={busy || status.running}>
-      <span className={`sync-icon ${busy ? "spin" : ""}`} aria-hidden>⟳</span>
-      <span>{busy ? "Syncing…" : "Sync"}</span>
-      <span className="muted small">
-        {waiting ? `${status.behind} new from the team · ` : ""}
-        {status.pending ? `${status.pending} to send · ` : ""}
-        {status.remote ? `synced ${ago(status.lastSyncedAt)}` : "no shared repo yet"}
-      </span>
+    <button className={`sync-button ${waiting || status.pending ? "attention" : ""}`} onClick={run} disabled={active}>
+      <span className={`sync-icon ${active ? "spin" : ""}`} aria-hidden>⟳</span>
+      <span>{active ? "Syncing…" : "Sync"}</span>
+      {active ? (
+        <span className="muted small" aria-live="polite">
+          {progress ? `${progress.stage}${progress.total ? ` · ${progress.done} of ${progress.total}` : "…"}` : "Starting…"}
+        </span>
+      ) : (
+        <span className="muted small">
+          {waiting ? `${status.behind} new from the team · ` : ""}
+          {status.pending ? `${status.pending} to send · ` : ""}
+          {status.remote ? `synced ${ago(status.lastSyncedAt)}` : "no shared repo yet"}
+        </span>
+      )}
+      {active && progress?.total ? (
+        <span className="sync-bar" role="progressbar" aria-valuemin={0} aria-valuemax={progress.total} aria-valuenow={progress.done}>
+          <span style={{ width: `${(100 * progress.done) / progress.total}%` }} />
+        </span>
+      ) : null}
     </button>
   );
 };

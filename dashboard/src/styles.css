@@ -413,3 +413,5 @@ select:focus { outline: none; border-color: var(--accent); }
 .edit-scope { border: 0; padding: 0; margin: 0; min-width: 0; }
 .edit-scope:disabled { opacity: 0.75; }
 .sync-setup p { margin: 0 0 8px; line-height: 1.7; }
+.sync-bar { grid-column: 1 / -1; height: 4px; margin-top: 6px; border-radius: 2px; background: var(--border); overflow: hidden; }
+.sync-bar > span { display: block; height: 100%; background: var(--accent); transition: width 0.3s; }

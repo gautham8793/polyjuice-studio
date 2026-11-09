@@ -107,15 +107,16 @@ class R2Store implements BlobStore {
 }
 
 // The team's store, or null when sync media isn't set up on this computer.
+// An explicit choice for this computer (.studio/sync.json) wins; otherwise the team's R2 key.
 export async function blobStore(root: string): Promise<BlobStore | null> {
-  const r2 = await readSecret<R2Key>(root, "r2");
-  // Placeholder values ("YOUR_…") mean the key hasn't been filled in yet.
-  const filled = (v?: string) => !!v && !v.startsWith("YOUR_");
-  if (r2 && filled(r2.accountId) && filled(r2.bucket) && filled(r2.accessKeyId) && filled(r2.secretAccessKey)) return new R2Store(r2);
   const cfgFile = path.join(localDir(root), "sync.json");
   if (existsSync(cfgFile)) {
     const cfg = JSON.parse(await readFile(cfgFile, "utf8"));
     if (cfg.blobStore?.type === "folder" && cfg.blobStore.path) return new FolderStore(path.resolve(root, cfg.blobStore.path));
   }
+  const r2 = await readSecret<R2Key>(root, "r2");
+  // Placeholder values ("YOUR_…") mean the key hasn't been filled in yet.
+  const filled = (v?: string) => !!v && !v.startsWith("YOUR_");
+  if (r2 && filled(r2.accountId) && filled(r2.bucket) && filled(r2.accessKeyId) && filled(r2.secretAccessKey)) return new R2Store(r2);
   return null;
 }

@@ -2,9 +2,9 @@ import type { Brand, Project, Timeline } from "../../remotion/src/types";
 import type { ReviewFile, ReviewSummary } from "./review";
 import type { Activity, Member, Team, Workspace } from "./team";
 import type { InstagramStatus, PublishJob } from "../server/instagram";
-import type { SyncReport, SyncStatus } from "../server/sync";
+import type { SyncProgress, SyncReport, SyncStatus } from "../server/sync";
 
-export type { SyncReport, SyncStatus };
+export type { SyncProgress, SyncReport, SyncStatus };
 
 export type { InstagramStatus, PublishJob, Workspace };
 
