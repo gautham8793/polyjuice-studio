@@ -33,6 +33,23 @@ function Retry([scriptblock]$Do) {
 # Write UTF-8 without a byte-order mark (Node's JSON.parse rejects one).
 function Write-Utf8($path, $text) { [IO.File]::WriteAllText((Join-Path $PWD $path), $text) }
 
+Step "Windows security check"
+# Smart App Control (Windows 11) blocks unsigned programs and DLLs, which includes parts of Git,
+# the captions engine (whisper-cli.exe) and native build tools the studio uses. Error to expect:
+# "An Application Control policy has blocked this file". 0 = off, 1 = on, 2 = evaluation.
+$sac = (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy" -ErrorAction SilentlyContinue).VerifiedAndReputablePolicyState
+if ($sac -eq 1 -or $sac -eq 2) {
+  Write-Host "  Smart App Control is $(if ($sac -eq 1) { 'ON' } else { 'in evaluation mode' }) on this PC." -ForegroundColor Yellow
+  Write-Host "  It will likely block parts of the studio (Git, captions, the video renderer)." -ForegroundColor Yellow
+  Write-Host "  To use the studio, turn it off: Windows Security > App & browser control >" -ForegroundColor Yellow
+  Write-Host "  Smart App Control settings > Off. (Windows can only turn it back on after a reset;" -ForegroundColor Yellow
+  Write-Host "  Microsoft Defender antivirus stays on.) On a work PC, ask your IT team instead." -ForegroundColor Yellow
+  $answer = Read-Host "  Continue anyway? (y/N)"
+  if ($answer -notmatch '^[yY]') { exit 1 }
+} else {
+  Write-Host "  ok (Smart App Control is off)"
+}
+
 Step "Tools: Git, Node.js, Python 3.12, FFmpeg"
 if (-not (Have winget)) { throw "winget is missing. Install 'App Installer' from the Microsoft Store, then run this again." }
 if (-not (Have git)) { Install "Git.Git" }
