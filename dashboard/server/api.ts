@@ -11,9 +11,11 @@ import { compositionFor } from "../../remotion/src/templates/SceneVideo";
 import { buildPublish, type MusicCredit } from "../src/publish";
 import { contentRoot, python, remotionCli, reveal } from "./paths";
 import { editAllowed, initContent, joinContent, runSync, setLock, syncStatus, testStore } from "./sync";
+import { disconnectYoutube, finishYoutubeAuth, setThumbnail, uploadVideo, youtubeAuthUrl, youtubeStatus } from "./youtube";
 import { handleTeamApi, logActivity, readMe, readReview, readTeam, writeTeam } from "./team";
 import { hasRole } from "../src/team";
 import { reviewSummary } from "../src/review";
+import type { PublishedEntry } from "../src/team";
 import { uploadedAt } from "../src/team";
 import { connectInstagram, disconnectInstagram, GraphError, instagramStatus, prepareReel, publishReel, type PublishJob } from "./instagram";
 import { previewTimeline } from "../src/timeline";
@@ -107,6 +109,38 @@ async function handleApi(
       } catch (e) {
         return json(res, 400, { error: e instanceof Error ? e.message : String(e) });
       }
+    }
+  }
+
+  // YouTube connection: sign in with Google once; the refresh token stays in secrets/youtube.json.
+  if (parts[0] === "youtube") {
+    if (parts[1] === "connection" && method === "GET") return json(res, 200, await youtubeStatus(root));
+    if (parts[1] === "connect" && method === "GET") {
+      try {
+        const location = await youtubeAuthUrl(root, `http://${req.headers.host}/api/youtube/callback`);
+        res.statusCode = 302;
+        res.setHeader("Location", location);
+        return res.end();
+      } catch (e) {
+        return json(res, 400, { error: e instanceof Error ? e.message : String(e) });
+      }
+    }
+    if (parts[1] === "callback" && method === "GET") {
+      let message: string;
+      try {
+        if (url.searchParams.get("error")) throw new Error(`Google: ${url.searchParams.get("error")}`);
+        const ch = await finishYoutubeAuth(root, url.searchParams.get("code") ?? "", url.searchParams.get("state") ?? "");
+        message = `Connected to the YouTube channel “${ch.channelTitle}”. You can close this tab.`;
+      } catch (e) {
+        message = `Couldn't connect YouTube: ${e instanceof Error ? e.message : String(e)}`;
+      }
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      const safe = message.replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" })[c]!);
+      return res.end(`<!doctype html><meta charset="utf-8"><title>YouTube</title><body style="font-family:system-ui;background:#070b24;color:#eef1ff;padding:40px"><p>${safe}</p><p><a style="color:#00e5ff" href="/">Back to the studio</a></p>`);
+    }
+    if (parts[1] === "disconnect" && method === "POST") {
+      await disconnectYoutube(root);
+      return json(res, 200, await youtubeStatus(root));
     }
   }
 
@@ -291,6 +325,30 @@ async function handleApi(
     if (!existsSync(folder)) return json(res, 404, { error: "not exported yet" });
     reveal(folder);
     return json(res, 200, { ok: true });
+  }
+
+  // /api/projects/:slug/publish — the checklist and what would go out (GET), or publish (POST):
+  // YouTube (private) and/or Instagram, recorded in team.json, then synced. Only a publisher's own
+  // click starts it; agents never do (REQ-06).
+  if (action === "publish" && parts.length === 3) {
+    const pre = await publishPreflight(root, slug);
+    if (method === "GET") {
+      const { video: _v, ...rest } = pre;
+      return json(res, 200, { ...rest, job: publishJobs.get(slug) ?? null });
+    }
+    if (method === "POST") {
+      const { youtube, instagram, again } = JSON.parse((await readBody(req)).toString("utf8") || "{}");
+      if (publishJobs.get(slug)?.status === "running") return json(res, 409, { error: "already publishing" });
+      const failed = pre.checks.filter((c) => !c.ok);
+      if (failed.length) return json(res, 409, { error: failed.map((c) => c.detail).join(" · ") });
+      if (!youtube && !instagram) return json(res, 400, { error: "pick YouTube, Instagram or both" });
+      if (youtube && !(pre.youtube.status.connected && pre.youtube.status.ok)) return json(res, 409, { error: "YouTube isn't connected" });
+      if (youtube && pre.youtube.published && !again) return json(res, 409, { error: "already on YouTube; tick “upload again” to make a second copy" });
+      if (instagram && !pre.instagram.ready) return json(res, 409, { error: pre.instagram.blockers.join(" ") || "Instagram isn't ready" });
+      if (instagram && pre.instagram.published && !again) return json(res, 409, { error: "already on Instagram; tick “upload again” to post a second time" });
+      startPublish(root, slug, pre, !!youtube, !!instagram);
+      return json(res, 202, publishJobs.get(slug));
+    }
   }
 
   // /api/projects/:slug/instagram — what would be posted (GET), or publish the exported Reel (POST)
@@ -587,6 +645,110 @@ async function instagramPreflight(root: string, slug: string) {
     sizeMb: Math.round(sizeMb * 10) / 10,
     seconds: Math.round(seconds),
   };
+}
+
+export type PublishCheck = { id: string; label: string; ok: boolean; detail: string };
+export type CombinedJob = {
+  status: "running" | "done" | "error";
+  stage: string;
+  progress: number | null; // YouTube upload, 0–1
+  youtube: PublishedEntry | null;
+  instagram: PublishedEntry | null;
+  warnings: string[];
+  error?: string;
+};
+const publishJobs = new Map<string, CombinedJob>();
+
+async function publishPreflight(root: string, slug: string) {
+  const me = await readMe(root);
+  const { project } = await loadProject(root, slug);
+  const team = await readTeam(root, slug);
+  const review = reviewSummary(project, await readReview(root, slug));
+  const video = path.join(root, "out", slug, `${slug}.mp4`);
+  const exportedAt = existsSync(video) ? (await stat(video)).mtimeMs : null;
+  const editedAt = await projectVersion(path.join(contentRoot(root), "projects", slug));
+  const sync = await syncStatus(root, true);
+  const meta = existsSync(path.join(root, "out", slug, "metadata.json"))
+    ? JSON.parse(await readFile(path.join(root, "out", slug, "metadata.json"), "utf8"))
+    : null;
+  const checks: PublishCheck[] = [
+    { id: "publisher", label: "You're the publisher", ok: hasRole(me, "publisher"), detail: me ? `${me.name} doesn't have the publisher role` : "pick who you are in Team & activity" },
+    { id: "script", label: "The owner approved the current script", ok: review.state === "approved", detail: review.state === "stale" ? "the script changed after it was approved; the owner re-approves it" : "the owner approves the script in the Script tab" },
+    { id: "export", label: "The export is up to date", ok: !!exportedAt && exportedAt >= editedAt, detail: exportedAt ? "the video was edited after the last Export; export again" : "export the video first" },
+    { id: "synced", label: "Up to date with the team", ok: !sync.configured || !sync.remote || sync.behind === 0, detail: `${sync.behind ?? "?"} change(s) from the team aren't here yet; press Sync` },
+  ];
+  const ig = await instagramPreflight(root, slug);
+  const igAccount = await instagramStatus(root);
+  const igOk = igAccount.connected && igAccount.ok && igAccount.canUpload && igAccount.missingScopes.length === 0;
+  return {
+    checks,
+    ready: checks.every((c) => c.ok),
+    video,
+    preview: exportedAt ? { url: `/out/${slug}/${slug}.mp4?t=${Math.round(exportedAt)}`, sizeMb: ig.sizeMb ?? null, seconds: ig.seconds ?? null, format: project.format ?? "short-9x16" } : null,
+    text: meta ? { title: meta.youtubeTitle as string, description: meta.youtubeDescription as string, tags: (meta.tags as string | undefined) ?? "", pinnedComment: (meta.pinnedComment as string | undefined) ?? "" } : null,
+    youtube: { status: await youtubeStatus(root), published: team.published?.youtube ?? null },
+    instagram: {
+      account: igAccount.connected ? `@${(igAccount as { username?: string }).username ?? ""}` : null,
+      ready: igOk && ig.ready,
+      blockers: igOk
+        ? ig.blockers
+        : [!igAccount.connected
+            ? "Connect Instagram under Channel & captions → Connections."
+            : "Instagram didn't confirm the account just now (or needs reconnecting); reopen this tab to check again."],
+      warnings: ig.warnings,
+      published: team.published?.instagram ?? null,
+    },
+  };
+}
+
+function startPublish(root: string, slug: string, pre: Awaited<ReturnType<typeof publishPreflight>>, toYoutube: boolean, toInstagram: boolean) {
+  const job: CombinedJob = { status: "running", stage: "Starting", progress: null, youtube: null, instagram: null, warnings: [] };
+  publishJobs.set(slug, job);
+  (async () => {
+    const me = (await readMe(root))!;
+    const record = async (key: "youtube" | "instagram", entry: PublishedEntry) => {
+      const team = await readTeam(root, slug); // re-read: a sync may have changed it meanwhile
+      team.published = { ...team.published, [key]: entry };
+      await writeTeam(root, slug, team);
+      await logActivity(root, { by: me.id, project: slug, type: key === "youtube" ? "youtube.uploaded" : "instagram.posted" });
+    };
+    if (toYoutube) {
+      job.stage = "Uploading to YouTube";
+      job.progress = 0;
+      const tags = (pre.text?.tags ?? "").split(",").map((t) => t.trim()).filter(Boolean);
+      const id = await uploadVideo(root, { file: pre.video, title: pre.text!.title, description: pre.text!.description, tags, privacy: "private" }, (f) => (job.progress = f));
+      const short = (pre.preview?.format ?? "short-9x16") === "short-9x16";
+      job.youtube = { id, url: short ? `https://youtube.com/shorts/${id}` : `https://youtu.be/${id}`, at: new Date().toISOString(), by: me.id, visibility: "private" };
+      await record("youtube", job.youtube);
+      if (!short) {
+        job.stage = "Setting the thumbnail";
+        await setThumbnail(root, id, await readFile(path.join(root, "out", slug, "cover.png"))).catch((e) =>
+          job.warnings.push(`Thumbnail not set (${e.message}); add cover.png in YouTube Studio.`),
+        );
+      }
+    }
+    if (toInstagram) {
+      job.stage = "Posting to Instagram";
+      job.progress = null;
+      const caption = (await readFile(path.join(root, "out", slug, "instagram.txt"), "utf8")).trim();
+      const sub: PublishJob = { status: "running", stage: "Starting" };
+      const poll = setInterval(() => (job.stage = `Instagram: ${sub.stage}`), 500);
+      try {
+        const { mediaId, permalink } = await publishReel(root, { video: pre.video, caption, coverMs: 2000, name: `${slug}-${Date.now()}.mp4` }, sub);
+        job.instagram = { id: mediaId, url: permalink, at: new Date().toISOString(), by: me.id };
+        await record("instagram", job.instagram);
+      } finally {
+        clearInterval(poll);
+      }
+    }
+    if ((await syncStatus(root)).configured) {
+      job.stage = "Syncing";
+      await runSync(root).catch((e) => job.warnings.push(`Published, but sync failed: ${e.message}. Press Sync.`));
+    }
+    Object.assign(job, { status: "done", stage: "Published", progress: null });
+  })().catch((err) => {
+    Object.assign(job, { status: "error", stage: "Failed", error: err instanceof Error ? err.message : String(err) });
+  });
 }
 
 function startInstagramPublish(root: string, slug: string, video: string, caption: string) {

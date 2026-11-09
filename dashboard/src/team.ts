@@ -8,7 +8,7 @@ export type Members = { members: Member[] };
 
 // Where a video went out. Instagram entries are written by the server after a real post;
 // a YouTube entry without an id is the "Mark as uploaded" button.
-export type PublishedEntry = { id?: string; url?: string; at: string; by?: string };
+export type PublishedEntry = { id?: string; url?: string; at: string; by?: string; visibility?: "private" | "unlisted" | "public" };
 export type Team = {
   owner?: string; // member id; edits the script and approves it (Q6)
   assignees?: Record<string, string>; // e.g. { visuals: "m2" }
@@ -24,7 +24,7 @@ export type ActivityType =
   | "script.approved" | "script.revoked"
   | "team.owner" | "published.marked" | "published.unmarked" | "instagram.posted"
   | "voice.generated" | "export.done" | "project.moved"
-  | "edit.checkout" | "edit.release";
+  | "edit.checkout" | "edit.release" | "youtube.uploaded";
 export type Activity = { at: string; by: string; project?: string; type: ActivityType; scene?: string; note?: string };
 
 export const ACTIVITY_TEXT: Record<ActivityType, string> = {
@@ -42,6 +42,7 @@ export const ACTIVITY_TEXT: Record<ActivityType, string> = {
   "project.moved": "moved it to a folder",
   "edit.checkout": "started editing",
   "edit.release": "finished editing",
+  "youtube.uploaded": "uploaded it to YouTube (private)",
 };
 
 export const hasRole = (m: Member | null | undefined, role: Role) => !!m && (m.roles.includes(role) || m.roles.includes("admin"));

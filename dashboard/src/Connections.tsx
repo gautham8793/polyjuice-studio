@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, type InstagramStatus } from "./api";
+import { api, type InstagramStatus, type YouTubeStatus } from "./api";
 
 const PERMISSIONS = "instagram_basic, instagram_content_publish, pages_show_list, pages_read_engagement, business_management";
 
@@ -135,15 +135,54 @@ export const Connections: React.FC = () => {
         {error && <p className="warn-text small">{error}</p>}
       </div>
 
-      <div className="connection muted small">
-        <div className="connection-head">
-          <span className="avatar">▶️</span>
-          <div className="connection-info">
-            <strong>YouTube</strong>
-            <span>Coming next</span>
-          </div>
+      <YouTubeConnection />
+    </div>
+  );
+};
+
+// YouTube: "Connect" opens Google's sign-in in a new tab; the token stays on this computer.
+const YouTubeConnection: React.FC = () => {
+  const [yt, setYt] = useState<YouTubeStatus | null>(null);
+  const load = () => api.youtubeStatus().then(setYt, () => setYt({ configured: false, connected: false }));
+  useEffect(() => {
+    load();
+    window.addEventListener("focus", load); // back from Google's sign-in tab
+    return () => window.removeEventListener("focus", load);
+  }, []);
+  return (
+    <div className="connection">
+      <div className="connection-head">
+        <span className="avatar">▶️</span>
+        <div className="connection-info">
+          <strong>YouTube</strong>
+          {yt === null && <span className="muted small">Checking…</span>}
+          {yt && !yt.configured && (
+            <span className="muted small">
+              Add your Google OAuth client to <code>secrets/youtube-client.json</code> first.
+            </span>
+          )}
+          {yt?.configured && !yt.connected && <span className="muted small">Not connected</span>}
+          {yt?.connected && (
+            <span className="small">
+              <span className={yt.ok ? "ok-text" : "warn-text"}>{yt.ok ? "Connected ✓" : "Needs reconnecting"}</span> · {yt.channelTitle}
+              {yt.error && <span className="warn-text"> · {yt.error}</span>}
+            </span>
+          )}
         </div>
+        {yt?.configured && (
+          <div className="connection-actions">
+            {(!yt.connected || !yt.ok) && (
+              <a className="btn small" href="/api/youtube/connect" target="_blank" rel="noreferrer">
+                {yt.connected ? "Reconnect" : "Connect"}
+              </a>
+            )}
+            {yt.connected && (
+              <button className="btn small ghost" onClick={async () => setYt(await api.disconnectYoutube())}>Disconnect</button>
+            )}
+          </div>
+        )}
       </div>
+      <p className="muted small">Uploads go up as Private; make them public in YouTube Studio.</p>
     </div>
   );
 };

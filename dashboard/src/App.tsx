@@ -9,6 +9,7 @@ import { summarize, SyncButton } from "./SyncButton";
 import { Preview } from "./Preview";
 import { SceneCard } from "./SceneCard";
 import { SearchModal } from "./SearchModal";
+import { PublishCard } from "./PublishCard";
 import { PublishPanel } from "./PublishPanel";
 import { SoundPanel } from "./SoundPanel";
 import { ChannelPanel } from "./ChannelPanel";
@@ -439,9 +440,16 @@ export const App: React.FC = () => {
             )}
             <div className={`workspace ${tab === "script" ? "reading" : ""}`}>
               {tab === "publish" ? (
-                <fieldset className="edit-scope" disabled={!canEdit}>
-                  <PublishPanel project={project} research={loaded.research} slug={slug!} job={render} onChange={updateProject} onPublished={() => { refreshList(); reload(slug!); }} />
-                </fieldset>
+                <div className="publish-tab">
+                  {/* Publishing isn't editing: it doesn't need the check-out, only the publisher role. */}
+                  <section className="card">
+                    <h3>Publish</h3>
+                    <PublishCard slug={slug!} render={render} onPublished={() => { refreshList(); reload(slug!); loadSync(); }} />
+                  </section>
+                  <fieldset className="edit-scope" disabled={!canEdit}>
+                    <PublishPanel project={project} research={loaded.research} slug={slug!} job={render} onChange={updateProject} onPublished={() => { refreshList(); reload(slug!); }} />
+                  </fieldset>
+                </div>
               ) : tab === "script" ? (
                 <ScriptPanel
                   project={project}

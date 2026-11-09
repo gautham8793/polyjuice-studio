@@ -3,8 +3,21 @@ import type { ReviewFile, ReviewSummary } from "./review";
 import type { Activity, Member, Team, Workspace } from "./team";
 import type { InstagramStatus, PublishJob } from "../server/instagram";
 import type { SyncProgress, SyncReport, SyncStatus } from "../server/sync";
+import type { YouTubeStatus } from "../server/youtube";
+import type { CombinedJob, PublishCheck } from "../server/api";
+import type { PublishedEntry } from "./team";
 
-export type { SyncProgress, SyncReport, SyncStatus };
+export type { CombinedJob, PublishCheck, SyncProgress, SyncReport, SyncStatus, YouTubeStatus };
+
+export type PublishPreflight = {
+  checks: PublishCheck[];
+  ready: boolean;
+  preview: { url: string; sizeMb: number | null; seconds: number | null; format: string } | null;
+  text: { title: string; description: string; tags: string; pinnedComment: string } | null;
+  youtube: { status: YouTubeStatus; published: PublishedEntry | null };
+  instagram: { account: string | null; ready: boolean; blockers: string[]; warnings: string[]; published: PublishedEntry | null };
+  job: CombinedJob | null;
+};
 
 export type { InstagramStatus, PublishJob, Workspace };
 
@@ -156,6 +169,10 @@ export const api = {
   uploadSheet: (id: string, file: File) =>
     call<CharacterLibrary>(`/api/characters/${id}/sheet?filename=${encodeURIComponent(file.name)}`, { method: "POST", body: file }),
   instagramStatus: () => call<InstagramStatus>("/api/instagram/connection"),
+  youtubeStatus: () => call<YouTubeStatus>("/api/youtube/connection"),
+  disconnectYoutube: () => call<YouTubeStatus>("/api/youtube/disconnect", post()),
+  publishPreflight: (slug: string) => call<PublishPreflight>(`/api/projects/${slug}/publish`),
+  publish: (slug: string, to: { youtube: boolean; instagram: boolean; again?: boolean }) => call<CombinedJob>(`/api/projects/${slug}/publish`, post(to)),
   connectInstagram: (creds: { userToken: string; appId: string; appSecret: string }) =>
     call<InstagramStatus>("/api/instagram/connection", post(creds)),
   instagramPreflight: (slug: string) => call<InstagramPreflight>(`/api/projects/${slug}/instagram`),
