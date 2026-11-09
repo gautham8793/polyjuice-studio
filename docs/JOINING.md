@@ -13,20 +13,23 @@ space and an hour the first time (most of it is downloads).
 ### Windows 10 / 11
 1. Accept both GitHub invites (`polyjuice-channel` and `polyjuice-studio`) from the email or
    github.com/notifications.
-2. Open **PowerShell** (Start → type "PowerShell"). Install Git: `winget install --id Git.Git -e`
+2. Open **PowerShell** (Start → type "PowerShell"). Install Git and the GitHub app:
+   `winget install --id Git.Git -e` and `winget install --id GitHub.cli -e`
    (if `winget` isn't found, install **App Installer** from the Microsoft Store first).
    Then **close PowerShell and open a new one**.
-3. Download the studio into a folder **without spaces** in its name:
+3. Sign in to GitHub once, through the browser: `gh auth login` (choose **GitHub.com**, **HTTPS**,
+   **Yes** to authenticate Git, **Login with a web browser**; copy the code it shows), then
+   `gh auth setup-git`. Git never asks for a password after this (GitHub doesn't accept passwords).
+4. Download the studio into a folder **without spaces** in its name:
    `cd $HOME\Documents` then `git clone https://github.com/gautham8793/polyjuice-studio.git PolyjuiceStudio`.
-   A GitHub sign-in window opens the first time: sign in with the invited account.
-4. Run the setup (installs Node.js, Python, FFmpeg, the voice and captions engines; 20–40 minutes):
+5. Run the setup (installs Node.js, Python, FFmpeg, the voice and captions engines; 20–40 minutes):
    `cd PolyjuiceStudio` then
    `powershell -ExecutionPolicy Bypass -File .\setup.ps1 -Member <your-member-id>`
-5. Put the two key files Gautham sent into the `secrets` folder (`explorer secrets` opens it). Check
+6. Put the two key files Gautham sent into the `secrets` folder (`explorer secrets` opens it). Check
    the names are exactly `r2.json` and `google-tts.json` (`dir secrets`), not `r2.json.txt`.
-6. Double-click **Polyjuice Studio** on your Desktop. A black window starts the studio (keep it open)
+7. Double-click **Polyjuice Studio** on your Desktop. A black window starts the studio (keep it open)
    and the dashboard opens in your browser after a few seconds.
-7. Press **Sync** (bottom left). The first sync downloads the videos' images and audio (about 450 MB).
+8. Press **Sync** (bottom left). The first sync downloads the videos' images and audio (about 450 MB).
 
 ### macOS
 Accept the invites, `git clone https://github.com/gautham8793/polyjuice-studio.git PolyjuiceStudio`, then
