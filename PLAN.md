@@ -317,6 +317,19 @@ npm run studio    # live preview (shows the whales sample by default)
 - `activity/<member>.jsonl`: append-only log shown under **Team & activity** in the sidebar.
 - Old data was converted by `tools/migrate_team.py` (backups in `.studio/migration-backup/`).
 
+## Team sync (Nov 9, 2026 — DEC-15 steps 1–3)
+
+- Content lives in `workspace/` (projects, library, brand, members, folders, activity). On the
+  owner's Mac, `projects`, `library` and `brand` at the repo root are links into it, so older paths
+  and agents keep working.
+- `workspace/` becomes its own Git repo (the shared content repo); media files are listed by
+  SHA-256 in `media.json` files and stored in a blob store: Cloudflare R2 (`secrets/r2.json`:
+  accountId, bucket, accessKeyId, secretAccessKey) or a folder (`.studio/sync.json`).
+- **Sync** (sidebar) records media, uploads, commits, merges others' work and downloads their media.
+  **Team & activity → Sync** sets it up (first member) or joins (new computer, empty `workspace/`).
+- With 2+ members, editing a video needs **Edit (check out)**; others see it read-only but can
+  still review the script. Same-file collisions keep both versions (`*.conflict-<member>.*`).
+
 ## Notes & risks
 
 - **Copyright:** avoid random Google Images — YouTube Content ID can block monetization.
