@@ -41,13 +41,21 @@ if (-not (Have node)) { Install "OpenJS.NodeJS.LTS" }
 # use x64 Python there; Windows runs it through its built-in x64 emulation.
 $arm = $env:PROCESSOR_ARCHITECTURE -eq "ARM64"
 function Find-Python {
-  # Every installed Python the py launcher knows ("-V:3.12  C:\...\python.exe"); on ARM keep x64 only.
-  foreach ($line in (& py -0p 2>$null)) {
-    if ($line -match "3\.12\S*\s+\*?\s*(\S.*python\.exe)") {
-      $exe = $Matches[1].Trim()
-      $machine = & $exe -c "import platform; print(platform.machine())" 2>$null
-      if (-not $arm -or $machine -eq "AMD64") { return $exe }
-    }
+  # Candidates: the standard install folders (a fresh install may not be on PATH yet), the py
+  # launcher's list, and any python on PATH. Each is asked what it is; on ARM keep x64 (AMD64) only.
+  $candidates = @(
+    "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe",
+    "$env:ProgramFiles\Python312\python.exe",
+    "${env:ProgramFiles(x86)}\Python312\python.exe"
+  )
+  if (Have py) {
+    foreach ($line in (& py -0p 2>$null)) { if ($line -match "(\S.*python\.exe)\s*$") { $candidates += $Matches[1].Trim() } }
+  }
+  $candidates += (Get-Command python -All -ErrorAction SilentlyContinue | ForEach-Object { $_.Source })
+  foreach ($exe in ($candidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique)) {
+    if ($exe -like "*WindowsApps*") { continue } # the Microsoft Store "python" stub
+    $info = & $exe -c "import platform, sys; print(platform.machine(), '%d.%d' % sys.version_info[:2])" 2>$null
+    if ($info -match "^(\S+) 3\.12$" -and (-not $arm -or $Matches[1] -eq "AMD64")) { return $exe }
   }
   return $null
 }
