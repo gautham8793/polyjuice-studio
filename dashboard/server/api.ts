@@ -10,7 +10,9 @@ import type { Plugin } from "vite";
 import { compositionFor } from "../../remotion/src/templates/SceneVideo";
 import { buildPublish, type MusicCredit } from "../src/publish";
 import { contentRoot, python, remotionCli, reveal } from "./paths";
+import { editAllowed, initContent, joinContent, runSync, setLock, syncStatus } from "./sync";
 import { handleTeamApi, logActivity, readMe, readReview, readTeam, writeTeam } from "./team";
+import { hasRole } from "../src/team";
 import { reviewSummary } from "../src/review";
 import { uploadedAt } from "../src/team";
 import { connectInstagram, disconnectInstagram, GraphError, instagramStatus, prepareReel, publishReel, type PublishJob } from "./instagram";
@@ -78,6 +80,33 @@ async function handleApi(
 
   if (parts[0] === "projects" && parts.length === 1 && method === "GET") {
     return json(res, 200, await listProjects(root));
+  }
+
+  // Team sync (DEC-15 step 3): status, run, first-time setup, join
+  if (parts[0] === "sync") {
+    const body = async () => JSON.parse((await readBody(req)).toString("utf8") || "{}");
+    if (parts.length === 1 && method === "GET") return json(res, 200, await syncStatus(root, url.searchParams.get("fetch") === "1"));
+    if (parts.length === 1 && method === "POST") {
+      try {
+        return json(res, 200, await runSync(root));
+      } catch (e) {
+        return json(res, 500, { error: e instanceof Error ? e.message : String(e) });
+      }
+    }
+    if (parts[1] === "init" && method === "POST") {
+      if (!hasRole(await readMe(root), "admin")) return json(res, 403, { error: "only an admin sets up sync" });
+      const { remote } = await body();
+      return json(res, 200, await initContent(root, remote ? String(remote) : undefined));
+    }
+    if (parts[1] === "join" && method === "POST") {
+      const { remote } = await body();
+      if (!remote) return json(res, 400, { error: "the shared content repo's address is needed" });
+      try {
+        return json(res, 200, await joinContent(root, String(remote)));
+      } catch (e) {
+        return json(res, 400, { error: e instanceof Error ? e.message : String(e) });
+      }
+    }
   }
 
   // Team files: me, members, folders, activity, and per-project review / approval / team
@@ -207,6 +236,24 @@ async function handleApi(
   const slug = parts[1];
   const dir = path.join(contentRoot(root), "projects", slug);
   if (!existsSync(path.join(dir, "project.json"))) return json(res, 404, { error: "no such project" });
+
+  // Editing a video needs its check-out when several members share the content (DEC-15).
+  const editing = (parts.length === 2 && method === "PUT") || (method === "POST" && ["assets", "recording"].includes(parts[2] ?? ""));
+  if (editing) {
+    const allowed = await editAllowed(root, slug);
+    if (!allowed.ok) return json(res, 423, { error: "locked", reason: allowed.reason });
+  }
+
+  // /api/projects/:slug/lock — check the video out for editing (take: true) or hand it back
+  if (parts[2] === "lock" && method === "POST") {
+    const { take } = JSON.parse((await readBody(req)).toString("utf8") || "{}");
+    try {
+      const team = await setLock(root, slug, !!take);
+      return json(res, 200, { team, version: await projectVersion(dir) });
+    } catch (e) {
+      return json(res, 409, { error: e instanceof Error ? e.message : String(e) });
+    }
+  }
 
   // /api/projects/:slug
   if (parts.length === 2) {

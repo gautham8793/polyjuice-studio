@@ -400,3 +400,16 @@ select:focus { outline: none; border-color: var(--accent); }
 .reviewer.changes .reviewer-name { color: var(--warn); }
 .reviewer-comment { color: var(--text); }
 .reviewer.edited .reviewer-comment { opacity: 0.7; }
+
+/* Team sync: sidebar button, check-out, read-only */
+.sync-button { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 10px; align-items: center; text-align: left; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; cursor: pointer; }
+.sync-button:hover:not(:disabled) { border-color: var(--accent); }
+.sync-button.attention { border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+.sync-button > span:nth-child(2) { font-weight: 650; font-size: 13px; }
+.sync-icon { grid-row: span 2; font-size: 18px; color: var(--accent); display: inline-block; }
+.sync-icon.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.lock-chip { display: inline-flex; gap: 8px; align-items: center; }
+.edit-scope { border: 0; padding: 0; margin: 0; min-width: 0; }
+.edit-scope:disabled { opacity: 0.75; }
+.sync-setup p { margin: 0 0 8px; line-height: 1.7; }

@@ -13,6 +13,9 @@ export const contentRoot = (codeRoot: string) => {
   return env ? path.resolve(codeRoot, env) : existsSync(ws) ? ws : codeRoot;
 };
 
+// Machine-local state (which member I am, sync state, caches): <code>/.studio, or STUDIO_LOCAL.
+export const localDir = (codeRoot: string) => path.resolve(codeRoot, process.env.STUDIO_LOCAL ?? ".studio");
+
 // The Python in tools/.venv (bin/ on macOS and Linux, Scripts\ on Windows).
 export const python = (codeRoot: string) =>
   process.platform === "win32"

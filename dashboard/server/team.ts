@@ -7,7 +7,7 @@ import path from "node:path";
 import type { Scene } from "../../remotion/src/types";
 import { emptyReview, sceneHash, scriptHash, type ReviewFile } from "../src/review";
 import { canApproveScript, hasRole, type Activity, type Member, type Members, type Role, type Team, type Workspace } from "../src/team";
-import { contentRoot } from "./paths";
+import { contentRoot, localDir } from "./paths";
 
 const SLUG = /^[a-z0-9][a-z0-9-]*$/;
 const SCENE_ID = /^[a-z0-9]+$/;
@@ -33,7 +33,7 @@ export const readReview = (root: string, slug: string) =>
 const writeReview = (root: string, slug: string, r: ReviewFile) => writeJson(path.join(projectDir(root, slug), "review.json"), r);
 
 // .studio/me.json lives with the code, not the content: it says which member this computer is.
-const meFile = (root: string) => path.join(root, ".studio", "me.json");
+const meFile = (root: string) => path.join(localDir(root), "me.json");
 export const readMe = async (root: string): Promise<Member | null> => {
   const { member } = await readJson<{ member?: string }>(meFile(root), {});
   return (await readMembers(root)).members.find((m) => m.id === member) ?? null;

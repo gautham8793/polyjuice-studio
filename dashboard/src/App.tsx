@@ -4,7 +4,8 @@ import { sceneStarts } from "../../remotion/src/templates/SceneVideo";
 import type { Brand, Project, Scene } from "../../remotion/src/types";
 import { CharactersPanel } from "./CharactersPanel";
 import { scenePrompt } from "./prompts";
-import { api, type CharacterLibrary, type LoadedProject, type ProjectSummary, type RenderJob, type TeamUpdate, type Workspace } from "./api";
+import { api, type CharacterLibrary, type LoadedProject, type ProjectSummary, type RenderJob, type SyncReport, type SyncStatus, type TeamUpdate, type Workspace } from "./api";
+import { summarize, SyncButton } from "./SyncButton";
 import { Preview } from "./Preview";
 import { SceneCard } from "./SceneCard";
 import { SearchModal } from "./SearchModal";
@@ -41,12 +42,19 @@ export const App: React.FC = () => {
   const [members, setMembers] = useState<Member[]>([]);
   const [teamOpen, setTeamOpen] = useState(false);
   const loadMe = useCallback(() => api.me().then((r) => { setMe(r.me); setMembers(r.members); }).catch(() => {}), []);
+  const [sync, setSync] = useState<SyncStatus | null>(null);
+  const loadSync = useCallback((fetchRemote = false) => api.syncStatus(fetchRemote).then(setSync).catch(() => {}), []);
+  useEffect(() => {
+    loadSync();
+    loadSync(true); // then ask the shared repo what's new, which can take a moment
+  }, [loadSync]);
   const [characterLib, setCharacterLib] = useState<CharacterLibrary | null>(null);
   useEffect(() => {
     api.characters().then(setCharacterLib).catch(() => setCharacterLib(null));
     api.getBrand().then(setBrand).catch(() => setBrand(null));
   }, []);
   const player = useRef<PlayerRef>(null);
+  const canEditRef = useRef(true);
   const saveTimer = useRef<number>(undefined);
 
   const refreshList = useCallback(() => api.listProjects().then(setProjects), []);
@@ -93,15 +101,17 @@ export const App: React.FC = () => {
   useEffect(() => {
     const onFocus = async () => {
       refreshList();
+      loadSync();
       api.getWorkspace().then(setWorkspace).catch(() => {});
+      loadMe();
       if (!slug || saveState !== "saved") return;
-      const p = await api.loadProject(slug);
-      if (p.version !== version.current) reload(slug);
+      // Reload even when project.json is unchanged: a sync may have changed its team or review files.
+      reload(slug);
       api.getBrand().then(setBrand).catch(() => {});
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [slug, saveState, reload, refreshList]);
+  }, [slug, saveState, reload, refreshList, loadSync, loadMe]);
 
   useEffect(() => {
     if (!slug) return;
@@ -129,11 +139,13 @@ export const App: React.FC = () => {
         });
       } else {
         setSaveState("error");
+        setLog({ title: "Not saved", text: e instanceof Error ? e.message : String(e), ok: false });
       }
     }
   }, [reload]);
 
   const updateProject = (next: Project) => {
+    if (!canEditRef.current) return; // someone else has the video checked out
     setProject(next);
     setSaveState("unsaved");
     window.clearTimeout(saveTimer.current);
@@ -238,6 +250,41 @@ export const App: React.FC = () => {
   const owner = members.find((m) => m.id === loaded?.team.owner);
   const canHandOver = !!me && (hasRole(me, "admin") || !loaded?.team.owner || loaded.team.owner === me.id);
 
+  // Team mode: with a shared content repo and several members, editing a video needs its check-out.
+  const teamMode = !!sync?.configured && members.length > 1;
+  const lock = loaded?.team.lock ?? null;
+  const canEdit = !teamMode || (!!me && lock?.by === me.id);
+  canEditRef.current = canEdit;
+  const lockAction = async (take: boolean) => {
+    if (!slug) return;
+    await flushSave();
+    try {
+      const { team } = await api.lock(slug, take);
+      await reload(slug); // the check-out synced first, so pick up everyone's latest
+      setLoaded((l) => (l ? { ...l, team } : l));
+      refreshList();
+    } catch (e) {
+      setLog({ title: take ? "Couldn't check out" : "Couldn't hand back", text: e instanceof Error ? e.message : String(e), ok: false });
+    } finally {
+      loadSync();
+    }
+  };
+  const afterSync = (r: SyncReport | null, error?: string) => {
+    if (error || !r) setLog({ title: "Sync failed", text: error ?? "unknown error", ok: false });
+    else {
+      const extra = [
+        ...r.conflicts.map((c) => `Someone else's version of ${c} was kept; yours is saved next to it as *.conflict-${me?.id}.*`),
+        ...r.log,
+      ];
+      setLog({ title: "Synced", text: [summarize(r), ...extra].join("\n"), ok: r.conflicts.length === 0 });
+    }
+    refreshList();
+    loadMe();
+    api.getWorkspace().then(setWorkspace).catch(() => {});
+    if (slug) reload(slug);
+    loadSync();
+  };
+
   return (
     <div className="app">
       <aside className="sidebar">
@@ -252,6 +299,7 @@ export const App: React.FC = () => {
           onUploaded={(s, on) => teamAction(api.setUploaded(s, on))}
           onWorkspace={updateWorkspace}
         />
+        <SyncButton status={sync} onStart={flushSave} onDone={afterSync} />
         <button className="team-button" onClick={() => setTeamOpen(true)}>
           <span className="avatar">{me?.name.slice(0, 1) ?? "?"}</span>
           <span>{me ? me.name : "Who are you?"}</span>
@@ -271,6 +319,7 @@ export const App: React.FC = () => {
               <div className="title-block">
                 <input
                   className="title-input"
+                  readOnly={!canEdit}
                   value={project.title}
                   onChange={(e) => updateProject({ ...project, title: e.target.value })}
                   aria-label="Video title"
@@ -299,6 +348,21 @@ export const App: React.FC = () => {
                   ) : (
                     <span className="chip">Owner: {owner?.name ?? "none"}</span>
                   )}
+                  {teamMode && (lock?.by === me?.id ? (
+                    <span className="chip ok lock-chip">
+                      ✏️ You're editing
+                      <button className="link inline small" onClick={() => lockAction(false)}>Done editing</button>
+                    </span>
+                  ) : lock ? (
+                    <span className="chip warn" title={`Since ${new Date(lock.at).toLocaleString()}`}>
+                      🔒 {members.find((m) => m.id === lock.by)?.name ?? lock.by} is editing
+                      {hasRole(me, "admin") && Date.now() - Date.parse(lock.at) > 48 * 3600e3 && (
+                        <button className="link inline small" onClick={() => lockAction(true)}> Take over</button>
+                      )}
+                    </span>
+                  ) : (
+                    <button className="btn small" onClick={() => lockAction(true)}>✏️ Edit (check out)</button>
+                  ))}
                   <span className="chip">{project.template}</span>
                   <span className="chip">{project.style}</span>
                   <span className="chip">{filled}/{total} images</span>
@@ -368,9 +432,16 @@ export const App: React.FC = () => {
               </button>
             </div>
 
+            {!canEdit && tab !== "script" && (
+              <div className="banner">
+                <strong>Read-only.</strong> {lock ? "Someone else is editing this video." : "Check the video out to edit it."} You can still review the script in the Script tab.
+              </div>
+            )}
             <div className={`workspace ${tab === "script" ? "reading" : ""}`}>
               {tab === "publish" ? (
-                <PublishPanel project={project} research={loaded.research} slug={slug!} job={render} onChange={updateProject} onPublished={() => api.getWorkspace().then(setWorkspace)} />
+                <fieldset className="edit-scope" disabled={!canEdit}>
+                  <PublishPanel project={project} research={loaded.research} slug={slug!} job={render} onChange={updateProject} onPublished={() => { refreshList(); reload(slug!); }} />
+                </fieldset>
               ) : tab === "script" ? (
                 <ScriptPanel
                   project={project}
@@ -384,6 +455,7 @@ export const App: React.FC = () => {
                   onApprove={(approve) => teamAction(api.approveScript(slug!, approve))}
                 />
               ) : (
+              <fieldset className="edit-scope" disabled={!canEdit}>
               <section className="scenes" aria-label="Scenes">
                 {brand && (
                   <ThemePanel
@@ -431,6 +503,7 @@ export const App: React.FC = () => {
                   />
                 ))}
               </section>
+              </fieldset>
               )}
               {tab !== "script" && <aside className="preview-col">
                 <div className="preview-sticky">
@@ -447,6 +520,8 @@ export const App: React.FC = () => {
 
       {teamOpen && (
         <TeamPanel
+          sync={sync}
+          onSyncChanged={() => { loadSync(); refreshList(); loadMe(); }}
           me={me}
           members={members}
           onMembers={setMembers}

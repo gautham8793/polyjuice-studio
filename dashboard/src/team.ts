@@ -23,7 +23,8 @@ export type ActivityType =
   | "review.approved" | "review.changes" | "review.cleared"
   | "script.approved" | "script.revoked"
   | "team.owner" | "published.marked" | "published.unmarked" | "instagram.posted"
-  | "voice.generated" | "export.done" | "project.moved";
+  | "voice.generated" | "export.done" | "project.moved"
+  | "edit.checkout" | "edit.release";
 export type Activity = { at: string; by: string; project?: string; type: ActivityType; scene?: string; note?: string };
 
 export const ACTIVITY_TEXT: Record<ActivityType, string> = {
@@ -39,6 +40,8 @@ export const ACTIVITY_TEXT: Record<ActivityType, string> = {
   "voice.generated": "generated voice",
   "export.done": "exported the video",
   "project.moved": "moved it to a folder",
+  "edit.checkout": "started editing",
+  "edit.release": "finished editing",
 };
 
 export const hasRole = (m: Member | null | undefined, role: Role) => !!m && (m.roles.includes(role) || m.roles.includes("admin"));

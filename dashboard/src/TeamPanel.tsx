@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "./api";
+import { api, type SyncStatus } from "./api";
 import { ACTIVITY_TEXT, hasRole, type Activity, type Member, type Role } from "./team";
 
 const ROLES: { id: Role; label: string; hint: string }[] = [
@@ -43,6 +43,8 @@ export const WhoAreYou: React.FC<{ members: Member[]; onPick: (id: string) => vo
 );
 
 type Props = {
+  sync: SyncStatus | null;
+  onSyncChanged: () => void;
   me: Member | null;
   members: Member[];
   titles: Record<string, string>;
@@ -52,7 +54,23 @@ type Props = {
   onClose: () => void;
 };
 
-export const TeamPanel: React.FC<Props> = ({ me, members, titles, onMembers, onSwitch, onOpenProject, onClose }) => {
+export const TeamPanel: React.FC<Props> = ({ sync, onSyncChanged, me, members, titles, onMembers, onSwitch, onOpenProject, onClose }) => {
+  const [remote, setRemote] = useState("");
+  const [syncBusy, setSyncBusy] = useState(false);
+  const setupSync = async (join: boolean) => {
+    setError(null);
+    setSyncBusy(true);
+    try {
+      if (join) await api.joinSync(remote.trim());
+      else await api.initSync(remote.trim() || undefined);
+      setRemote("");
+      onSyncChanged();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSyncBusy(false);
+    }
+  };
   const [activity, setActivity] = useState<Activity[] | null>(null);
   const [draft, setDraft] = useState<Member[]>(members);
   const [newName, setNewName] = useState("");
@@ -97,6 +115,38 @@ export const TeamPanel: React.FC<Props> = ({ me, members, titles, onMembers, onS
               {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>
           </label>
+        </section>
+
+        <section>
+          <h3>Sync</h3>
+          {!sync ? null : sync.configured ? (
+            <div className="sync-setup">
+              <p className="small">
+                Shared repo: {sync.remote ? <code>{sync.remote}</code> : <span className="warn-text">not set: changes stay on this computer</span>}
+                <br />
+                Media store: {sync.store ? <code>{sync.store}</code> : <span className="warn-text">not set: add <code>secrets/r2.json</code></span>}
+              </p>
+              {!sync.remote && isAdmin && (
+                <div className="members-add">
+                  <input value={remote} onChange={(e) => setRemote(e.target.value)} placeholder="https://github.com/…/polyjuice-channel.git" aria-label="Shared content repo address" />
+                  <button className="btn small" disabled={!remote.trim() || syncBusy} onClick={() => setupSync(false)}>Connect</button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="sync-setup">
+              <p className="muted small">
+                {isAdmin
+                  ? "Turn this computer's content into the team's shared content (first member only), optionally with the shared repo's address."
+                  : "New computer: paste the shared content repo's address to download the team's videos."}
+              </p>
+              <div className="members-add">
+                <input value={remote} onChange={(e) => setRemote(e.target.value)} placeholder="https://github.com/…/polyjuice-channel.git" aria-label="Shared content repo address" />
+                {isAdmin && <button className="btn small" disabled={syncBusy} onClick={() => setupSync(false)}>Set up sync</button>}
+                <button className="btn small" disabled={!remote.trim() || syncBusy} onClick={() => setupSync(true)}>Join</button>
+              </div>
+            </div>
+          )}
         </section>
 
         <section>

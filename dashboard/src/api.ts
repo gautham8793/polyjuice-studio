@@ -2,6 +2,9 @@ import type { Brand, Project, Timeline } from "../../remotion/src/types";
 import type { ReviewFile, ReviewSummary } from "./review";
 import type { Activity, Member, Team, Workspace } from "./team";
 import type { InstagramStatus, PublishJob } from "../server/instagram";
+import type { SyncReport, SyncStatus } from "../server/sync";
+
+export type { SyncReport, SyncStatus };
 
 export type { InstagramStatus, PublishJob, Workspace };
 
@@ -73,7 +76,7 @@ export type RenderJob = {
 async function call<T>(url: string, init?: RequestInit): Promise<T> {
   const r = await fetch(url, init);
   const body = await r.json();
-  if (!r.ok) throw new Error(body?.error ?? `HTTP ${r.status}`);
+  if (!r.ok) throw new Error(body?.reason ?? body?.error ?? `HTTP ${r.status}`); // reason: why a video is locked
   return body as T;
 }
 
@@ -93,6 +96,11 @@ export const api = {
   approveScript: (slug: string, approve: boolean) => call<TeamUpdate>(`/api/projects/${slug}/approve`, post({ approve })),
   setOwner: (slug: string, owner: string) => call<TeamUpdate>(`/api/projects/${slug}/team`, post({ owner })),
   setUploaded: (slug: string, uploaded: boolean) => call<TeamUpdate>(`/api/projects/${slug}/team`, post({ uploaded })),
+  syncStatus: (fetchRemote = false) => call<SyncStatus>(`/api/sync${fetchRemote ? "?fetch=1" : ""}`),
+  runSync: () => call<SyncReport>("/api/sync", post()),
+  initSync: (remote?: string) => call<SyncStatus>("/api/sync/init", post({ remote })),
+  joinSync: (remote: string) => call<SyncStatus>("/api/sync/join", post({ remote })),
+  lock: (slug: string, take: boolean) => call<{ team: Team; version: number }>(`/api/projects/${slug}/lock`, post({ take })),
   getWorkspace: () => call<Workspace>("/api/workspace"),
   saveWorkspace: (ws: Workspace) =>
     call<Workspace>("/api/workspace", {
