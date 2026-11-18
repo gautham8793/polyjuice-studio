@@ -1,6 +1,8 @@
 import { Composition, staticFile, type CalculateMetadataFunction } from "remotion";
 import { ChannelBanner } from "./brand/ChannelBanner";
 import { SetupTest } from "./SetupTest";
+import { DOC_SAMPLE_FRAMES, DocSample, docTimeline, VOICE_FILE, type DocSampleProps } from "./templates/documentary/DocSample";
+import { FontBoard } from "./templates/documentary/FontBoard";
 import { calculateVideoMetadata, FPS, SceneVideo, type VideoProps } from "./templates/SceneVideo";
 import type { Brand, Project, Timeline } from "./types";
 
@@ -22,6 +24,12 @@ const withSample: CalculateMetadataFunction<VideoProps> = async (args) => {
     props = { ...props, project, timeline, brand };
   }
   return { ...(await calculateVideoMetadata({ ...args, props })), props };
+};
+
+// Documentary sample: load the sample voice (if generated) and size the composition to it.
+const withDocVoice: CalculateMetadataFunction<DocSampleProps> = async ({ props }) => {
+  const voice = props.voice ?? (await fetch(staticFile(VOICE_FILE)).then((r) => (r.ok ? r.json() : undefined)).catch(() => undefined));
+  return { durationInFrames: docTimeline(voice).total, props: { ...props, voice } };
 };
 
 // Shorts / Reels: 1080x1920 @ 30fps. Both templates share one engine; the default props are
@@ -90,6 +98,13 @@ export const Root: React.FC = () => {
         defaultProps={sample("2026-11-car-t-cells")}
         calculateMetadata={withSample}
       />
+      {/* Documentary: paper-collage long-form (16:9) and its Shorts (9:16), project-driven */}
+      <Composition id="Documentary" component={SceneVideo} width={1920} height={1080} fps={FPS} durationInFrames={300} defaultProps={sample("library/doc-template/sample-project")} calculateMetadata={withSample} />
+      <Composition id="DocumentaryVertical" component={SceneVideo} width={1080} height={1920} fps={FPS} durationInFrames={300} defaultProps={sample("library/doc-template/sample-project")} calculateMetadata={withSample} />
+      {/* Documentary template — look-development sample (M-Pesa beat), 16:9 and 9:16 */}
+      <Composition id="DocSample" component={DocSample} width={1920} height={1080} fps={30} durationInFrames={DOC_SAMPLE_FRAMES} defaultProps={{}} calculateMetadata={withDocVoice} />
+      <Composition id="DocFontBoard" component={FontBoard} width={1920} height={1080} fps={30} durationInFrames={1} />
+      <Composition id="DocSampleVertical" component={DocSample} width={1080} height={1920} fps={30} durationInFrames={DOC_SAMPLE_FRAMES} defaultProps={{}} calculateMetadata={withDocVoice} />
       <Composition
         id="ChannelBanner"
         component={ChannelBanner}

@@ -8,7 +8,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import type { Plugin } from "vite";
 import { compositionFor } from "../../remotion/src/templates/SceneVideo";
-import { buildPublish, type MusicCredit } from "../src/publish";
+import { allowsInstagram, buildPublish, type MusicCredit } from "../src/publish";
 import { contentRoot, python, remotionCli, reveal } from "./paths";
 import { editAllowed, initContent, joinContent, runSync, setLock, syncStatus, testStore } from "./sync";
 import { disconnectYoutube, finishYoutubeAuth, setThumbnail, uploadVideo, youtubeAuthUrl, youtubeStatus } from "./youtube";
@@ -342,6 +342,7 @@ async function handleApi(
       const failed = pre.checks.filter((c) => !c.ok);
       if (failed.length) return json(res, 409, { error: failed.map((c) => c.detail).join(" · ") });
       if (!youtube && !instagram) return json(res, 400, { error: "pick YouTube, Instagram or both" });
+      if (instagram && !pre.instagram.allowed) return json(res, 400, { error: "long-form videos go to YouTube only" });
       if (youtube && !(pre.youtube.status.connected && pre.youtube.status.ok)) return json(res, 409, { error: "YouTube isn't connected" });
       if (youtube && pre.youtube.published && !again) return json(res, 409, { error: "already on YouTube; tick “upload again” to make a second copy" });
       if (instagram && !pre.instagram.ready) return json(res, 409, { error: pre.instagram.blockers.join(" ") || "Instagram isn't ready" });
@@ -532,6 +533,17 @@ async function listMusic(root: string) {
 
 const projectVersion = async (dir: string) => (await stat(path.join(dir, "project.json"))).mtimeMs;
 
+/** Where Instagram takes the Reel's cover from (thumb_offset, ms). Shorts with project.cover.inVideo
+ *  open on the designed cover for half a second, so that frame is used; otherwise frame 60, as before. */
+async function reelCoverMs(root: string, slug: string) {
+  try {
+    const project = JSON.parse(await readFile(path.join(contentRoot(root), "projects", slug, "project.json"), "utf8"));
+    return project.cover?.inVideo ? 200 : 2000;
+  } catch {
+    return 2000;
+  }
+}
+
 async function loadProject(root: string, slug: string) {
   const dir = path.join(contentRoot(root), "projects", slug);
   const read = async (f: string) => (existsSync(path.join(dir, f)) ? readFile(path.join(dir, f), "utf8") : null);
@@ -591,12 +603,19 @@ function startRender(root: string, slug: string) {
       remotionDir,
     );
     if (cover.code !== 0) throw new Error(`cover failed\n${cover.out.slice(-1500)}`);
+    // YouTube thumbnails must be under 2 MB; the PNG usually isn't, so upload a JPEG copy.
+    const coverJpg = await run(
+      node,
+      [...cli, "still", "src/index.ts", composition, path.join(root, folder, "cover.jpg"), "--frame=60", "--image-format=jpeg", "--jpeg-quality=88", `--props=${coverProps}`, publicDir],
+      remotionDir,
+    );
+    if (coverJpg.code !== 0) throw new Error(`cover failed\n${coverJpg.out.slice(-1500)}`);
 
     job.stage = "Writing texts";
     const { project, research } = await loadProject(root, slug);
     const text = buildPublish(project, research, await musicCredit(root, project.music?.track));
     await writeFile(path.join(root, folder, "youtube.txt"), `${text.youtubeTitle}\n\n${text.youtubeDescription}\n`);
-    await writeFile(path.join(root, folder, "instagram.txt"), `${text.instagramCaption}\n`);
+    if (allowsInstagram(project)) await writeFile(path.join(root, folder, "instagram.txt"), `${text.instagramCaption}\n`);
     if (text.tags) await writeFile(path.join(root, folder, "tags.txt"), `${text.tags}\n`);
     if (text.pinnedComment) await writeFile(path.join(root, folder, "pinned-comment.txt"), `${text.pinnedComment}\n`);
     await writeJson(path.join(root, folder, "metadata.json"), { exportedAt: new Date().toISOString(), ...text });
@@ -696,8 +715,9 @@ async function publishPreflight(root: string, slug: string) {
     text: meta ? { title: meta.youtubeTitle as string, description: meta.youtubeDescription as string, tags: (meta.tags as string | undefined) ?? "", pinnedComment: (meta.pinnedComment as string | undefined) ?? "" } : null,
     youtube: { status: await youtubeStatus(root), published: team.published?.youtube ?? null },
     instagram: {
+      allowed: allowsInstagram(project), // long-form is YouTube only
       account: igAccount.connected ? `@${(igAccount as { username?: string }).username ?? ""}` : null,
-      ready: igOk && ig.ready,
+      ready: allowsInstagram(project) && igOk && ig.ready,
       blockers: igOk
         ? ig.blockers
         : [!igAccount.connected
@@ -728,12 +748,13 @@ function startPublish(root: string, slug: string, pre: Awaited<ReturnType<typeof
       const short = (pre.preview?.format ?? "short-9x16") === "short-9x16";
       job.youtube = { id, url: short ? `https://youtube.com/shorts/${id}` : `https://youtu.be/${id}`, at: new Date().toISOString(), by: me.id, visibility: "private" };
       await record("youtube", job.youtube);
-      if (!short) {
-        job.stage = "Setting the thumbnail";
-        await setThumbnail(root, id, await readFile(path.join(root, "out", slug, "cover.png"))).catch((e) =>
-          job.warnings.push(`Thumbnail not set (${e.message}); add cover.png in YouTube Studio.`),
-        );
-      }
+      // Shorts get the custom thumbnail too (YouTube shows it in search, the channel page and on the web).
+      job.stage = "Setting the thumbnail";
+      const jpg = path.join(root, "out", slug, "cover.jpg");
+      const thumb = existsSync(jpg) ? { file: jpg, type: "image/jpeg" } : { file: path.join(root, "out", slug, "cover.png"), type: "image/png" };
+      await setThumbnail(root, id, await readFile(thumb.file), thumb.type).catch((e) =>
+        job.warnings.push(`Thumbnail not set (${e.message}); add ${path.basename(thumb.file)} in YouTube Studio.`),
+      );
     }
     if (toInstagram) {
       job.stage = "Posting to Instagram";
@@ -742,7 +763,7 @@ function startPublish(root: string, slug: string, pre: Awaited<ReturnType<typeof
       const sub: PublishJob = { status: "running", stage: "Starting" };
       const poll = setInterval(() => (job.stage = `Instagram: ${sub.stage}`), 500);
       try {
-        const { mediaId, permalink } = await publishReel(root, { video: pre.video, caption, coverMs: 2000, name: `${slug}-${Date.now()}.mp4` }, sub);
+        const { mediaId, permalink } = await publishReel(root, { video: pre.video, caption, coverMs: await reelCoverMs(root, slug), name: `${slug}-${Date.now()}.mp4` }, sub);
         job.instagram = { id: mediaId, url: permalink, at: new Date().toISOString(), by: me.id };
         await record("instagram", job.instagram);
       } finally {
@@ -763,8 +784,8 @@ function startInstagramPublish(root: string, slug: string, video: string, captio
   const job: PublishJob = { status: "running", stage: "Starting" };
   instagramJobs.set(slug, job);
   (async () => {
-    // The cover is the same frame as cover.png (frame 60 at 30 fps).
-    const { mediaId, permalink } = await publishReel(root, { video, caption, coverMs: 2000, name: `${slug}-${Date.now()}.mp4` }, job);
+    // The Reel's cover is a frame of the video: the in-video cover for Shorts that have one, else frame 60.
+    const { mediaId, permalink } = await publishReel(root, { video, caption, coverMs: await reelCoverMs(root, slug), name: `${slug}-${Date.now()}.mp4` }, job);
     const team = await readTeam(root, slug);
     const by = (await readMe(root))?.id;
     team.published = { ...team.published, instagram: { id: mediaId, url: permalink, at: new Date().toISOString(), ...(by ? { by } : {}) } };

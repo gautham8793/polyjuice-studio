@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Project, Publish } from "../../remotion/src/types";
 import { api, type MusicTrack, type RenderJob } from "./api";
 import { InstagramPublish } from "./InstagramPublish";
-import { buildPublish, LIMITS } from "./publish";
+import { allowsInstagram, buildPublish, LIMITS } from "./publish";
 
 type Props = {
   project: Project;
@@ -151,6 +151,7 @@ export const PublishPanel: React.FC<Props> = ({ project, research, slug, job, on
         </details>
       </Accordion>
 
+      {allowsInstagram(project) && (
       <Accordion title="Instagram Reels" status={<>caption <Counter n={text.instagramCaption.length} max={LIMITS.instagramCaption} /></>}>
         <div className="card-head">
           <span className="muted small">Same description, with sources and credits as names only (no links)</span>
@@ -159,6 +160,7 @@ export const PublishPanel: React.FC<Props> = ({ project, research, slug, job, on
         <pre className="post-text">{text.instagramCaption}</pre>
         <InstagramPublish slug={slug} render={job} onPublished={onPublished} />
       </Accordion>
+      )}
 
       <Accordion title="Export package" status={exported ? "Exported" : job?.status === "running" ? "Exporting…" : "Not exported yet"}>
         {exported && (
@@ -174,7 +176,7 @@ export const PublishPanel: React.FC<Props> = ({ project, research, slug, job, on
               <ul className="files">
                 <li><a href={job!.output} target="_blank" rel="noreferrer">{slug}.mp4</a> — the video</li>
                 <li>cover.png — cover frame for Reels / Shorts</li>
-                <li>youtube.txt · instagram.txt · tags.txt · pinned-comment.txt — ready to paste</li>
+                <li>youtube.txt{allowsInstagram(project) ? " · instagram.txt" : ""} · tags.txt · pinned-comment.txt — ready to paste</li>
                 <li>metadata.json — everything above, for later automation</li>
               </ul>
             </div>

@@ -22,6 +22,7 @@ export const Captions: React.FC<{ words: Word[] }> = ({ words }) => {
   const { fps } = useVideoConfig();
   const theme = useTheme();
   const t = frame / fps;
+  if (theme.captions.style === "none") return null;
   const { wordsPerGroup, fontSize, bottomOffset, strokeWidth } = theme.captions;
 
   const groups = groupWords(words, wordsPerGroup);

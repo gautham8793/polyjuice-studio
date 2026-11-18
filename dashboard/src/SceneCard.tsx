@@ -19,7 +19,7 @@ type Props = {
   illustrated: boolean;
 };
 
-const KIND_LABEL = { hook: "Hook", item: "Item", character: "Character", beat: "Beat", scoreboard: "Scoreboard", measure: "Ballot", stats: "Stats", chart: "Chart", quiz: "Quiz", comment: "Comment", diagram: "Diagram", map: "Map", shot: "Shot", outro: "Outro" };
+const KIND_LABEL = { hook: "Hook", item: "Item", character: "Character", beat: "Beat", scoreboard: "Scoreboard", measure: "Ballot", stats: "Stats", chart: "Chart", quiz: "Quiz", comment: "Comment", diagram: "Diagram", map: "Map", shot: "Shot", doc: "Scene", outro: "Outro" };
 
 export const SceneCard: React.FC<Props> = ({
   scene, projectPath, stale, active, onChange, onFocus, onUpload, onSearch, onUploadRecording, onClearRecording,
@@ -75,7 +75,7 @@ export const SceneCard: React.FC<Props> = ({
             aria-label={scene.kind === "character" ? "Role" : "Name"}
           />
         ) : (
-          <span className="scene-title">{KIND_LABEL[scene.kind]}</span>
+          <span className="scene-title">{scene.kind === "doc" && scene.doc ? scene.doc.layout[0].toUpperCase() + scene.doc.layout.slice(1) : KIND_LABEL[scene.kind]}</span>
         )}
         {stale && <span className="badge warn" title="Narration changed since the voice was generated">Needs voice</span>}
       </header>

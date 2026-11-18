@@ -109,7 +109,8 @@ export type ArgonKind = "crash-hook" | "refactor-split" | "token-editor" | "auto
 
 export type Scene = {
   id: string;
-  kind: "hook" | "item" | "character" | "beat" | "scoreboard" | "measure" | "stats" | "chart" | "quiz" | "comment" | "diagram" | "map" | "shot" | "outro";
+  kind: "hook" | "item" | "character" | "beat" | "scoreboard" | "measure" | "stats" | "chart" | "quiz" | "comment" | "diagram" | "map" | "shot" | "doc" | "outro";
+  doc?: DocSpec; // documentary template: what this scene shows (layout + its data)
   argon?: ArgonKind; // programmatic UI scenes for the 60s Gemini Argon hybrid short
   shot?: Shot; // cinematic template: every scene (hook / shot / outro) is a shot
   rank?: number; // listicle items
@@ -120,6 +121,7 @@ export type Scene = {
   character?: string; // id in library/characters/ drawn in this scene
   narration: string;
   ttsText?: string; // optional phonetic respelling for the voice; captions still show `narration`
+  pauses?: { after: string; seconds: number }[]; // dramatic beats: silence after these narration words ("dead?" → 0.7 s → "No.")
   onScreenText: string;
   scoreboard?: Scoreboard;
   stats?: Stat[]; // "stats" scenes: 1–3 big-number tiles
@@ -258,15 +260,50 @@ export type Measure = {
 
 // Newsroom template (AI news shorts): a top bar on every scene, and one data widget per beat.
 // Widgets animate in when the narration says their `cue` word.
-export type NewsInfo = { tag?: string; date: string }; // tag default "AI NEWS"; date "NOV 5, 2026"
+// Series episodes: day (DAY 1 badge in the bar), episode (short name under it, "OVERVIEW"),
+// kicker (hook line above the headline, default "> breaking"), dim "strong" = darker photos behind beats.
+export type NewsInfo = { tag?: string; date: string; day?: number; episode?: string; kicker?: string; dim?: "normal" | "strong" }; // tag default "AI NEWS"; date "NOV 5, 2026"
 export type NewsTone = "accent" | "danger" | "up" | "neutral";
+// A big number that counts up on its cue. text: shown as-is instead of counting (e.g. "$70–78").
+export type NewsNumber = { value: number; prefix?: string; suffix?: string; decimals?: number; label: string; cue?: string; tone?: NewsTone; text?: string };
 export type NewsWidget =
   | { type: "funnel"; rows: { label: string; value: number; cue?: string; tone?: NewsTone }[] }
-  | { type: "counter"; items: { value: number; prefix?: string; suffix?: string; decimals?: number; label: string; cue?: string; tone?: NewsTone }[] }
+  | { type: "counter"; items: NewsNumber[] }
   | { type: "ticker"; trend: "down" | "up"; tone?: NewsTone; label?: string; cue?: string; items?: { label: string; change: number; cue?: string }[] } // tone: line color when "up" isn't good news
-  | { type: "compare"; unit?: string; items: { label: string; value: number; max?: number; cue?: string; tone?: NewsTone }[] }
+  | { type: "compare"; title?: string; prefix?: string; unit?: string; decimals?: number; items: { label: string; value: number; max?: number; cue?: string; tone?: NewsTone }[] }
   | { type: "terminal"; title?: string; lines: { text: string; cue?: string; tone?: NewsTone }[] }
-  | { type: "checklist"; columns: { label: string; done: number; total: number; cue?: string; tone?: NewsTone }[] };
+  | { type: "checklist"; columns: { label: string; done: number; total: number; cue?: string; tone?: NewsTone }[] }
+  // Real daily data, two series on one plot, each scaled to its own range (e.g. Nasdaq 100 and the 10-yr yield).
+  // revealTo: draw the lines up to this date · revealFrom: show up to this date at once, then draw the rest.
+  // draw: frames the drawing takes, starting on `cue`. step: use every n-th point.
+  // labels: axis text per date instead of "Sep 30" (e.g. "Q3 '25" for quarterly data).
+  | { type: "linechart"; dates: string[]; series: ChartSeries[]; cue?: string; draw?: number; from?: string; step?: number; note?: string; revealTo?: string; revealFrom?: string; markers?: { date: string; label: string; tone?: NewsTone }[]; labels?: string[] }
+  // Company logos on white tiles, each popping in on its cue word, with numbers under them
+  // (`total`: one big number · `totals`: 2–3 side by side). src: a file in library/logos; no src =
+  // the name as a text wordmark (for companies without a freely licensed logo)
+  // (record its source + license in library/logos/sources.json).
+  | { type: "logos"; title?: string; items: { name: string; src?: string; cue?: string }[]; total?: NewsNumber; totals?: NewsNumber[] }
+  // Share-price history since the IPO, one mini chart per company: the price line draws itself on its
+  // cue over a dashed IPO-price line, ending on a % chip (red below the IPO price, green above).
+  // Real closes only (e.g. monthly closes from Yahoo Finance), recorded in research.md.
+  | { type: "stocks"; items: { label: string; ticker?: string; ipo: number; ipoLabel?: string; dates: string[]; values: number[]; cue?: string; prefix?: string }[]; note?: string }
+  // A country's map (official outline from library/maps, built by tools/make_map_fill.py) filling up
+  // from the bottom until `share` of its AREA is covered, e.g. Anthropic = 38% of India's GDP.
+  | { type: "mapfill"; map: "india"; share: number; whole: { label: string; value: string; cue?: string }; part: { label: string; value: string; note?: string; cue?: string; tone?: NewsTone }; title?: string }
+  // Nested circles sized by AREA: a big circle (the whole, e.g. India's economy) with a smaller one
+  // inside it covering `share` of its area (0.38 = 38%), each popping in on its cue.
+  | { type: "circles"; title?: string; outer: { label: string; value: string; cue?: string }; inner: { label: string; value: string; share: number; note?: string; cue?: string; tone?: NewsTone } }
+  // A donut showing a share of a whole (e.g. 4.6% of a company sold): the slice sweeps in on its cue.
+  | { type: "pie"; value: number; center?: string; label: string; cue?: string; note?: string; tone?: NewsTone }
+  // A price tag that swings in: the old price struck through, then the new one counting up from it.
+  | { type: "pricetag"; was: { text: string; label?: string; cue?: string }; now: NewsNumber & { from?: number }; note?: string }
+  // Long history (log scale, series[0]) up to baseDate, then a zoomed-in future where past falls are
+  // replayed from today's peak as dashed paths, each drawn on its cue. Not a forecast.
+  | { type: "pathschart"; dates: string[]; series: ChartSeries[]; baseDate: string; paths: ChartPath[]; draw?: number; from?: string; step?: number; note?: string };
+
+export type ChartSeries = { label: string; values: (number | null)[]; tone?: NewsTone; decimals?: number; suffix?: string; prefix?: string; fred?: string };
+// days: trading days after the peak; values: the level replayed from today's peak
+export type ChartPath = { label: string; days: number[]; values: number[]; peak?: string; low?: string; cue?: string; tone?: NewsTone; color?: string };
 
 export type Series = {
   name: string; // "Election 2026 Explained"
@@ -276,7 +313,8 @@ export type Series = {
   asOf?: string; // "Nov 4, 2026"
 };
 
-export type Voice = { source: "tts"; engine: "kokoro" | "google"; voiceId: string; speed: number }; // google: "en-IN-Chirp3-HD-…"
+// tempo: speed the finished take up afterwards (ffmpeg atempo, pitch kept), e.g. 1.1 = 10 % faster
+export type Voice = { source: "tts"; engine: "kokoro" | "google"; voiceId: string; speed: number; tempo?: number }; // google: "en-IN-Chirp3-HD-…"
 
 export type Music = {
   track: string; // relative to the Video/ root, e.g. "library/music/calm-ocean.mp3"
@@ -310,10 +348,70 @@ export type Project = {
   voice?: Voice;
   music?: Music | null;
   diagram?: { nodes: DiagramNode[] }; // explainer: the org chart "diagram" scenes build up
+  docBackground?: "grid"; // documentary: faint graph-paper rules over the page (markets / chips videos)
+  cover?: { text: string; highlight?: string; kicker?: string; inVideo?: boolean; art?: "bank" | "chips" | "object"; object?: DocIcon }; // art: the picture beside the title (default: the bank) · "object": minimal cover, one engraved `object` + the words // documentary: the thumbnail's words (Export → cover.png) · inVideo: also show it as the first 0.5 s of the video (Shorts: Instagram/YouTube pick their cover from a video frame)
   scenes: Scene[];
 };
 
 export type Word = { text: string; start: number; end: number };
+
+// ── Documentary template: paper collage look (templates/documentary) ─────────────────────────
+export type DocIcon = "bank" | "card" | "smartphone" | "phone" | "house" | "cash" | "shop" | "sms" | "person" | "coin" | "vault" | "lock" | "newspaper" | "chart" | "globe" | "office" | "antenna" | "document" | "briefcase" | "people" | "qr" | "laptop" | "gavel" | "piggy" | "chip" | "wafer" | "machine" | "factory" | "plane" | "server" | "lens";
+export type DocSide = { title?: string; sub?: string; icon?: DocIcon; logo?: DocLogo; accent?: boolean; cue?: string };
+export type DocPhoto = { src: string; credit?: string; label?: string }; // src relative to the project or "library/..."
+export type DocLogo = { name: string; src?: string; zoom?: number; caption?: string; color?: string; cue?: string; credit?: string }; // credit: for logos whose licence needs attribution (CC BY / BY-SA) // no src: placeholder wordmark · cue: appears on this spoken word
+export type DocMap = {
+  view: [number, number, number, number]; // [minLon, minLat, maxLon, maxLat]
+  focus: string | string[]; // ISO-3 code(s) of the kraft cut-out countries ("KEN", ["GBR", "USA", "BRA"])
+  lit?: string[]; // other countries tinted kraft on the atlas (no cut-out)
+  marks?: { lon: number; lat: number; label: string; labelSide?: "left" | "right" | "top" | "bottom" }[];
+};
+export type DocSpec = {
+  layout: "title" | "chapter" | "date" | "photos" | "logos" | "crossed" | "stat" | "statement" | "map" | "bars" | "end" | "pillars" | "document" | "flow" | "versus" | "ticks" | "constellation" | "question" | "opener" | "chart" | "stack" | "print" | "queue" | "route" | "receipt" | "dollar";
+  photo?: DocPhoto; // statement / stat / logos: a taped print beside the content
+  paper?: "aged" | "torn" | "tornAged" | "figma" | "manila"; // preview only: try a paper look on this scene
+  stamp?: string; // rubber stamp on the thing it marks ("HALTED")
+  stampAt?: { h?: [number, number]; v?: [number, number] }; // stamp centre as frame fractions, 16:9 (h) and 9:16 (v)
+  pillars?: { mode: "intro" | "take" | "standing" | "wobble"; take?: number; taken?: number[]; cues?: string[] }; // pillars layout: 0 payments · 1 customer · 2 deposits · 3 lending · intro cues: the spoken word for each pillar
+  nodes?: { label: string; icon?: DocIcon; logo?: DocLogo; accent?: boolean; cue?: string }[]; // flow layout
+  versus?: { left: DocSide; right: DocSide }; // versus layout
+  india?: boolean; // adds the "IN INDIA" stamp
+  kicker?: string; // small mono line above the main text
+  text?: string; // title / statement / map headline / end line
+  highlight?: string; // a phrase inside `text` swept with the highlighter
+  sub?: string; // smaller line under the main text
+  date?: string; // date layout: "March 2007"
+  place?: string; // date layout: "Kenya"
+  coords?: string; // date layout: "1.29° S · 36.82° E · Nairobi"
+  chapter?: { n: number; title: string; pillar?: number; stack?: number }; // chapter card; sets the corner tag + pillar (banking) or AI-stack layer (chips) for later scenes
+  // chart layout: a real price line inked on graph paper (dates/values same length), red-pen loop on
+  // the peak, optional ticker-tape strip under it. draw: frames the line takes.
+  // chips/markets motion graphics (documentary/motion.tsx)
+  stack?: { mode?: "build" | "active" | "pressure"; active?: number; cues?: string[] }; // stack layout: the AI stack (0 apps … 4 machine)
+  circuit?: boolean; // copper circuit traces drawn behind the scene
+  queue?: { gate: string; logos: DocLogo[]; passCue?: string }; // queue layout: logos waiting at a gate · passCue: the word on which the front one goes through
+  route?: { from: { label: string; sub?: string }; to: { label: string; sub?: string }; roundTrip?: boolean; outLabel?: string; backLabel?: string }; // route layout
+  receipt?: { title: string; lines: { label: string; value: string; cue?: string }[]; total?: { label: string; value: string; cue?: string } }; // receipt layout
+  dollars?: { label: string; share: number; note?: string; accent?: boolean; cue?: string }[]; // dollar layout: share kept of every $1
+  chart?: { label: string; dates: string[]; values: number[]; prefix?: string; suffix?: string; decimals?: number; draw?: number; ticker?: { symbol: string; price: string; change?: string; down?: boolean }[] };
+  photos?: DocPhoto[]; // 1–3 taped prints
+  logos?: DocLogo[]; // sticker logos (logos layout, or under a map headline)
+  connectors?: string[]; // words between logos: ["by", "part-owned by"]
+  steps?: { icon: DocIcon; label: string; cue?: string }[]; // logos layout: icon flow under the logos
+  items?: { icon: DocIcon; label: string; cue?: string }[]; // crossed layout: icons struck through with red pen
+  pin?: "thumbtack" | "paperclip" | "tape" | "tapeCorners"; // preview only: how an index card is fixed to the page
+  stampCue?: string; // the stamp lands on this spoken word
+  stat?: {
+    value: number; prefix?: string; suffix?: string; decimals?: number; label: string; grid?: "dots" | "houses" | "people" | "stacks" | "scale" | "icons"; gridValue?: number; // grid "icons": 10 engraved `object`s, gridValue (or value/10) of them lit
+    style?: "card" | "clipping" | "object" | "flap"; // big-number look (no grid): pinned index card · newspaper headline · number beside an engraved object · split-flap board
+    cue?: string; // the number starts counting on this spoken word
+    split?: [string, string]; // grid "scale" / "stacks": labels — scale: [lighter side, the value's side] · stacks: [the value's side, the rest]
+    object?: DocIcon; // style "object": the engraved object shown beside the number
+  };
+  map?: DocMap;
+  bars?: { label: string; value: number; display?: string; accent?: boolean; cue?: string }[]; // bars layout, or a share bar under a map
+  source?: string; // "SOURCE · …" chip
+};
 
 export type TimelineScene = {
   id: string;
@@ -338,13 +436,22 @@ export type BrandPreset = {
     text: string;
     textOnAccent: string;
     textOnSecondary: string;
+    // optional, newsroom template (defaults keep the AI News look): up = rising numbers,
+    // card / cardBorder = widget cards (card may carry alpha), tag / textOnTag = the top-bar tag pill
+    up?: string;
+    card?: string;
+    cardBorder?: string;
+    tag?: string;
+    textOnTag?: string;
   };
-  fonts: { headline: string; body: string; hand?: string }; // hand: handwritten notes on diagrams
+  // hand: handwritten notes on diagrams · mono: small labels (newsroom) · numbers: big counting numbers (default: headline)
+  fonts: { headline: string; body: string; hand?: string; mono?: string; numbers?: string };
   pattern?: "blueprint"; // background drawn behind template scenes (default: radial glow)
 };
 
 // style "pop": big word-by-word captions (default) · "lower-third": one small calm phrase at a time
-export type CaptionStyle = { wordsPerGroup: number; fontSize: number; bottomOffset: number; strokeWidth: number; style?: "pop" | "lower-third" };
+// · "none": no captions drawn (bottomOffset still keeps the layout clear of the platform UI)
+export type CaptionStyle = { wordsPerGroup: number; fontSize: number; bottomOffset: number; strokeWidth: number; style?: "pop" | "lower-third" | "none" };
 
 // How the channel name and the source line appear on screen.
 export type WatermarkStyle = "footer" | "pill" | "corner" | "intro" | "none";

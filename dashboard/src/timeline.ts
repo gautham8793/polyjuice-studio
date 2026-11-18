@@ -7,7 +7,11 @@ export const voiceKey = (scene: Scene, project: Project) => {
   if (scene.recording) return `rec:${scene.recording}`;
   const speed = project.voice?.speed ?? 1;
   // Python writes floats as "1.0", JS as "1" — match Python so whole-number speeds aren't "stale"
-  const key = `${project.voice?.voiceId}@${Number.isInteger(speed) ? speed.toFixed(1) : speed}`;
+  let key = `${project.voice?.voiceId}@${Number.isInteger(speed) ? speed.toFixed(1) : speed}`;
+  const tempo = project.voice?.tempo;
+  if (tempo && tempo !== 1) key += `~${Number.isInteger(tempo) ? tempo.toFixed(1) : tempo}`; // sped up afterwards
+  // silent beats inside the line (prepare.py speak_with_pauses); Python writes 0.7 as "0.7", 1 as "1.0"
+  if (scene.pauses?.length) key += "|p:" + scene.pauses.map((p) => `${p.after}+${Number.isInteger(p.seconds) ? p.seconds.toFixed(1) : p.seconds}`).join(",");
   return scene.ttsText ? `${key}|${scene.ttsText}` : key;
 };
 

@@ -11,14 +11,17 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from studio_paths import CONTENT_ROOT, project_dir as find_project  # noqa: E402
+from studio_paths import CODE_ROOT, CONTENT_ROOT, project_dir as find_project  # noqa: E402
 
 WORDS_PER_SECOND = 2.35  # Kokoro am_michael at speed 1.05, measured on the whales sample
 SHORT_SECONDS = (35, 60)
 MAX_ON_SCREEN_WORDS = 10
 # scene kinds each template may use between its hook and outro
-TEMPLATES = {"listicle": {"item"}, "analogy": {"character", "beat"}, "explainer": {"item", "scoreboard", "measure", "beat", "stats", "chart", "quiz", "comment", "diagram", "map"}, "cinematic": {"shot"}, "newsroom": {"beat", "stats", "chart", "comment", "map"}}
-WIDGETS = {"funnel": "rows", "counter": "items", "ticker": None, "compare": "items", "terminal": "lines", "checklist": "columns"}
+TEMPLATES = {"listicle": {"item"}, "analogy": {"character", "beat"}, "explainer": {"item", "scoreboard", "measure", "beat", "stats", "chart", "quiz", "comment", "diagram", "map"}, "cinematic": {"shot"}, "newsroom": {"beat", "stats", "chart", "comment", "map"}, "documentary": {"doc"}}
+# documentary template: the fields each scene.doc layout needs
+DOC_LAYOUTS = {"title": ["text"], "chapter": ["chapter"], "date": ["date"], "photos": ["photos"], "logos": [], "crossed": ["items"], "stat": ["stat"], "statement": ["text"], "map": ["map"], "bars": ["bars"], "end": ["text"], "pillars": ["pillars"], "document": ["text"], "flow": ["nodes"], "versus": ["versus"], "ticks": ["items"], "constellation": ["logos"], "question": ["text"], "opener": ["stat"], "chart": ["chart"], "stack": [], "print": [], "queue": ["queue"], "route": ["route"], "receipt": ["receipt"], "dollar": ["dollars"]}
+DOC_ICONS = {"bank", "card", "smartphone", "phone", "house", "cash", "shop", "sms", "person", "coin", "vault", "lock", "newspaper", "chart", "globe", "office", "antenna", "document", "briefcase", "people", "qr", "laptop", "gavel", "piggy", "chip", "wafer", "machine", "factory", "plane", "server", "lens"}
+WIDGETS = {"funnel": "rows", "counter": "items", "ticker": None, "compare": "items", "terminal": "lines", "checklist": "columns", "linechart": "series", "pathschart": "paths", "logos": "items", "pricetag": "now", "pie": "label", "stocks": "items", "circles": "inner", "mapfill": "part"}
 STYLES = {"photo-mix", "illustrated"}
 VISUAL_TYPES = {"photo", "clip", "illustration", "graphic"}
 
@@ -254,6 +257,39 @@ def main() -> None:
             cues += [(l.get(k) or {}).get("cue") for l in shot.get("layers", []) for k in ("move", "enter", "glow")]
             for cue in filter(None, cues):
                 check_cue(s, cue, warnings)
+        if project.get("template") == "documentary":
+            d = s.get("doc")
+            if not d:
+                errors.append(f"{s.get('id')}: documentary scenes need a 'doc' spec (layout + data)")
+            else:
+                layout = d.get("layout")
+                if layout not in DOC_LAYOUTS:
+                    errors.append(f"{s.get('id')}: doc.layout must be one of {sorted(DOC_LAYOUTS)}")
+                for field in DOC_LAYOUTS.get(layout, []):
+                    if not d.get(field):
+                        errors.append(f"{s.get('id')}: doc layout '{layout}' needs '{field}'")
+                if layout == "logos" and not (d.get("logos") or d.get("steps")):
+                    errors.append(f"{s.get('id')}: doc layout 'logos' needs 'logos' or 'steps'")
+                vs = d.get("versus") or {}
+                sides = [vs.get("left") or {}, vs.get("right") or {}] if vs else []
+                for it in (d.get("items") or []) + (d.get("steps") or []) + [n for n in (d.get("nodes") or []) + sides if n.get("icon")]:
+                    if it.get("icon") not in DOC_ICONS:
+                        errors.append(f"{s.get('id')}: icon '{it.get('icon')}' must be one of {sorted(DOC_ICONS)}")
+                logos = (d.get("logos") or []) + [n["logo"] for n in (d.get("nodes") or []) + sides if n.get("logo")]
+                photos = (d.get("photos") or []) + ([d["photo"]] if d.get("photo") else [])
+                files = [p.get("src") for p in photos] + [l.get("src") for l in logos]
+                for src in filter(None, files):
+                    base = CONTENT_ROOT if src.startswith("library/") else project_dir
+                    if not (base / src).exists():
+                        errors.append(f"{s.get('id')}: doc file not found: {src}")
+                for p in photos:
+                    if not p.get("credit"):
+                        warnings.append(f"{s.get('id')}: photo {p.get('src')} has no credit line")
+                if d.get("highlight") and d["highlight"] not in (d.get("text") or "") + (d.get("sub") or ""):
+                    warnings.append(f"{s.get('id')}: highlight '{d['highlight']}' isn't in the doc text/sub")
+                m = d.get("map")
+                if m and (len(m.get("view") or []) != 4 or not m.get("focus")):
+                    errors.append(f"{s.get('id')}: doc.map needs view [minLon, minLat, maxLon, maxLat] and focus (ISO-3)")
         if project.get("template") == "newsroom":
             if s.get("kind") == "beat" and not s.get("widget"):
                 warnings.append(f"{s.get('id')}: newsroom beats look empty without a 'widget'")
@@ -266,9 +302,55 @@ def main() -> None:
                     errors.append(f"{s.get('id')}: widget.type must be one of {sorted(WIDGETS)}")
                 elif key and not w.get(key):
                     errors.append(f"{s.get('id')}: {w['type']} widget needs '{key}'")
-                parts = [w] + [x for k in ("rows", "items", "lines", "columns") for x in w.get(k) or []]
+                if w.get("type") in ("linechart", "pathschart"):
+                    dates = w.get("dates") or []
+                    if not dates:
+                        errors.append(f"{s.get('id')}: {w['type']} widget needs 'dates'")
+                    for se in w.get("series") or []:
+                        if len(se.get("values") or []) != len(dates):
+                            errors.append(f"{s.get('id')}: series '{se.get('label')}' has {len(se.get('values') or [])} values for {len(dates)} dates")
+                    if w["type"] == "pathschart":
+                        if not w.get("series"):
+                            errors.append(f"{s.get('id')}: pathschart widget needs 'series' (the history)")
+                        if not w.get("baseDate"):
+                            errors.append(f"{s.get('id')}: pathschart widget needs 'baseDate' (the peak the paths start from)")
+                        for pa in w.get("paths") or []:
+                            if len(pa.get("days") or []) != len(pa.get("values") or []) or not pa.get("days"):
+                                errors.append(f"{s.get('id')}: path '{pa.get('label')}' needs matching 'days' and 'values'")
+                parts = [w] + [x for k in ("rows", "items", "lines", "columns", "paths") for x in w.get(k) or []]
                 for cue in filter(None, (x.get("cue") for x in parts)):
                     check_cue(s, cue, warnings)
+                if w.get("type") == "logos":
+                    for n in [w.get("total") or {}] + (w.get("totals") or []):
+                        if n.get("cue"):
+                            check_cue(s, n["cue"], warnings)
+                    for it in w.get("items") or []:
+                        if it.get("src") and not (root_dir / it["src"]).is_file():
+                            errors.append(f"{s.get('id')}: logo not found: {it.get('src')}")
+                if w.get("type") == "mapfill":
+                    for part in ("whole", "part"):
+                        if (w.get(part) or {}).get("cue"):
+                            check_cue(s, w[part]["cue"], warnings)
+                    if not 0 < w.get("share", 0) <= 1:
+                        errors.append(f"{s.get('id')}: mapfill share must be between 0 and 1")
+                    if not (CODE_ROOT / "remotion/src/templates/newsroom/maps" / f"{w.get('map')}.ts").is_file():
+                        errors.append(f"{s.get('id')}: mapfill map '{w.get('map')}' not built — run tools/make_map_fill.py {w.get('map')}")
+                if w.get("type") == "circles":
+                    for part in ("outer", "inner"):
+                        if (w.get(part) or {}).get("cue"):
+                            check_cue(s, w[part]["cue"], warnings)
+                    if not 0 < (w.get("inner") or {}).get("share", 0) <= 1:
+                        errors.append(f"{s.get('id')}: circles inner.share must be between 0 and 1")
+                if w.get("type") == "stocks":
+                    for it in w.get("items") or []:
+                        if len(it.get("dates") or []) != len(it.get("values") or []) or not it.get("values"):
+                            errors.append(f"{s.get('id')}: stocks item '{it.get('label')}' needs matching 'dates' and 'values'")
+                        if not it.get("ipo"):
+                            errors.append(f"{s.get('id')}: stocks item '{it.get('label')}' needs 'ipo' (the IPO price)")
+                if w.get("type") == "pricetag":
+                    for part in ("was", "now"):
+                        if (w.get(part) or {}).get("cue"):
+                            check_cue(s, w[part]["cue"], warnings)
                 if w.get("type") == "checklist" and any(c.get("total", 0) > 25 for c in w.get("columns", [])):
                     warnings.append(f"{s.get('id')}: checklist columns fit up to 25 boxes")
         if s.get("kind") == "measure" and not s.get("measures"):

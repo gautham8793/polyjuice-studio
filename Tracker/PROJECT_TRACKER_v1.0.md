@@ -143,6 +143,7 @@ The studio has no numbered releases; these are the verified build milestones.
 | DEC-16 | Script first, for every agent | A new video starts as research + script only (narration, on-screen text, image prompts with `asset: null`). No images, voice, music or renders until the owner approves the script in the dashboard Script tab (`review.json`); scenes whose narration changes after approval are approved again before re-voicing. Added to `AGENTS.md` step 2 after a Gemini-made video skipped the approval | Agreed — 8 Nov 2026 |
 
 | DEC-17 | Temple product visual fidelity | Use the owner's downloaded Temple website assets for product shots. The five `web-*.png` files in `library/assets/Temple_Cerebral_Blood_Flow_Images/Downloaded assests/` are the actual product colour variants; match their rounded bean shape and the placement-reference portrait's upright temple position in generated illustrations. Figma file `uUQCDmP84YwhxS2JnUCkJO`: corrected illustrations in section `121:2`; original-product shots in `135:2`. Corrections saved under `out/temple-figma-2026-11-08/`. Applied to the dashboard video on 8 Nov 2026 via `apply_figma_visuals.py`; preview verified with original product variants, corrected illustrations and evidence graphics. | Agreed — 8 Nov 2026 |
+| DEC-18 | "The Anthropic IPO" daily series | Shorts numbered by calendar day from Day 1 = 10 Nov 2026 (roadshow launch); two videos on one day share the day number with different episode names (no "1/2"). Own theme `anthropic-ipo` (warm near-black, cream text, terracotta accent; Inter Tight / Newsreader / IBM Plex Mono — free fonts, not Anthropic's), newsroom template with a DAY badge, warm-light AI images, spoken daily-tracking outro, dashboard folder "The Anthropic IPO". Series guide + `new_episode.py` in `projects/_series/anthropic-ipo/`. A long-form video may follow | Agreed — 10 Nov 2026 |
 
 ## 9. Known gaps and risks
 
@@ -262,3 +263,7 @@ At the owner’s request, restored `visual` and `shot` for all 43 scenes from th
 ## 17. Sound effects removed from Checkpoint Inhibitors and Temple — completed, 8 November 2026
 
 At the owner's request, removed all per-shot sound effects (`shot.sfx`: `whoosh`, `shimmer`, `click`, `tick`, `heartbeat`, `monitor-beep`, `hit`, `rumble`, `riser`, `pop`, `ventilator`) from `projects/2026-11-checkpoint-inhibitors/project.json` (10 scenes) and `projects/2026-11-temple-brain-blood-flow/project.json` + `stage_shots.py` (42 staged scenes), and refreshed `remotion/.studio-props.json`. Validated both projects with `tools/validate_project.py` (0 errors).
+
+## 18. The Anthropic IPO series set up — agreed, 10 November 2026
+
+Owner agreed the series (DEC-18). Day 1 · Overview (`projects/2026-11-anthropic-ipo-d1-overview`, renamed from `2026-11-ai-news-anthropic-ipo`) moved to the new theme and folder; narration and voice unchanged; six images regenerated in warm light (Figma nodes 181:2–181:7). Newsroom template: theme-driven colours and fonts, `news.day/episode/kicker/dim`, new `logos` and `pricetag` widgets, `linechart.labels`. Typecheck and `validate_project.py` pass; not yet rendered (owner reviews in the dashboard).

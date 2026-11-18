@@ -15,7 +15,7 @@ export type PublishPreflight = {
   preview: { url: string; sizeMb: number | null; seconds: number | null; format: string } | null;
   text: { title: string; description: string; tags: string; pinnedComment: string } | null;
   youtube: { status: YouTubeStatus; published: PublishedEntry | null };
-  instagram: { account: string | null; ready: boolean; blockers: string[]; warnings: string[]; published: PublishedEntry | null };
+  instagram: { allowed: boolean; account: string | null; ready: boolean; blockers: string[]; warnings: string[]; published: PublishedEntry | null }; // allowed: false for long-form (YouTube only)
   job: CombinedJob | null;
 };
 

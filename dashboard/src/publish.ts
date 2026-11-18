@@ -2,6 +2,9 @@
 // Shared by the dashboard (live preview) and the export job (writes the files).
 import type { Project } from "../../remotion/src/types";
 
+// Long-form (16:9) videos are for YouTube only; Instagram gets the 9:16 Shorts/Reels.
+export const allowsInstagram = (project: { format?: string }) => !(project.format ?? "short-9x16").startsWith("long");
+
 export const LIMITS = { youtubeTitle: 100, youtubeDescription: 5000, instagramCaption: 2200, hashtags: 15, tags: 500 };
 
 // artist "Own …" = music you made (e.g. tools/ambient_score.py) — nothing to credit
@@ -20,11 +23,14 @@ export type PublishText = {
 
 const plain = (s: string) => s.replace(/\*/g, "").replace(/\s+/g, " ").trim();
 
-// Markdown links in research.md become the "Sources" list.
+// Markdown links in research.md become the "Sources" list. A long research file can hold far more
+// links than a 5,000-character description fits: then a "## Key sources" section picks the ones
+// that go in the description (the full research stays in research.md).
 export const parseSources = (research: string | null) => {
   const seen = new Set<string>();
   const out: { label: string; url: string }[] = [];
-  for (const m of (research ?? "").matchAll(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g)) {
+  const key = (research ?? "").match(/^## Key sources[^\n]*\n([\s\S]*?)(?=^## |(?![\s\S]))/m);
+  for (const m of (key ? key[1] : research ?? "").matchAll(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g)) {
     if (seen.has(m[2])) continue;
     seen.add(m[2]);
     out.push({ label: plain(m[1]), url: m[2] });
@@ -100,6 +106,24 @@ export const buildPublish = (project: Project, research: string | null, music: M
   for (const [name, credit] of pictured) credits.push(`Photo of ${name}: ${credit}`);
   for (const id of new Set(project.scenes.flatMap((s) => (s.kind === "map" && s.geo ? [s.geo.map] : []))))
     credits.push(...(MAP_CREDITS[id] ?? [`Map data: library/maps/${id} — check map.json for credits`]));
+  // Documentary template: photos and logos placed by scene.doc, plus its atlas maps
+  for (const s of project.scenes) {
+    const d = s.doc;
+    if (!d) continue;
+    for (const p of [...(d.photos ?? []), ...(d.photo ? [d.photo] : [])])
+      if (p.credit && !credited.has(p.src)) {
+        credited.add(p.src);
+        credits.push(`Photo: ${p.credit}`);
+      }
+    const logos = [...(d.logos ?? []), ...(d.nodes ?? []).flatMap((n) => (n.logo ? [n.logo] : [])), ...(d.versus ? [d.versus.left.logo, d.versus.right.logo].filter((l): l is NonNullable<typeof l> => !!l) : [])];
+    for (const l of logos)
+      if (l.credit && l.src && !credited.has(l.src)) {
+        credited.add(l.src);
+        credits.push(`${l.name} logo: ${l.credit}`);
+      }
+  }
+  if (project.scenes.some((s) => s.doc?.map || s.doc?.layout === "map" || s.doc?.layout === "date"))
+    credits.push("Maps: Natural Earth (public domain); India outline: DataMeet (github.com/datameet/maps), CC BY 4.0");
   if (music?.attribution) credits.push(`Music: ${music.attribution}`);
   else if (music && !/^own\b/i.test(music.artist ?? "")) credits.push(`Music: "${music.title}" — YouTube Audio Library`);
 
@@ -130,20 +154,30 @@ export const buildPublish = (project: Project, research: string | null, music: M
     .filter(Boolean)
     .join("\n\n");
 
-  const instagramCaption = [
-    publish.description.trim(),
-    items.join("\n"),
-    sources.length ? `Sources: ${[...new Set(sources.map((s) => s.label))].join(", ")}` : "",
-    // Instagram: no links in captions anyway, and the limit is tight — keep names + licenses only
+  // Instagram: no links in captions, and a hard 2,200 limit. Sources become outlet names (no dates),
+  // credits keep names + licences, and when it's still too long the caption sheds its least needed
+  // parts in turn: the FAQ, then the glossary, then the end of the description.
+  const outlet = (label: string) => label.replace(/,\s*((Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s*\d{0,2},?\s*(\d{4})?|\d{4})$/, "").trim();
+  const instagramTail = [
+    sources.length ? `Sources: ${[...new Set(sources.map((s) => outlet(s.label)))].join(", ")}` : "",
     credits.length ? `Credits: ${credits.map((c) => c.replace(/ — https?:\/\/\S+/g, "")).join(" · ")}` : "",
     seriesLine,
     hashtags.join(" "),
-  ]
-    .filter(Boolean)
-    .join("\n\n");
+  ];
+  const igDescription = publish.description.trim().replace(/\blinked below\b/g, "sourced below");
+  const dropBlock = (text: string, heading: RegExp) => text.replace(new RegExp(`(^|\\n\\n)${heading.source}[^\\n]*(\\n(?!\\n)[^\\n]*)*`, "u"), "");
+  const assemble = (description: string) => [description, items.join("\n"), ...instagramTail].filter(Boolean).join("\n\n");
+  let igText = igDescription;
+  for (const heading of [/❓\s*FAQ/, /📖[^\n]*[Gg]lossary/]) {
+    if (assemble(igText).length <= LIMITS.instagramCaption) break;
+    igText = dropBlock(igText, heading);
+  }
+  const over = assemble(igText).length - LIMITS.instagramCaption;
+  if (over > 0) igText = igText.slice(0, Math.max(0, igText.length - over - 1)).trimEnd() + "…";
+  const instagramCaption = assemble(igText);
 
   if (youtubeDescription.length > LIMITS.youtubeDescription) warnings.push("YouTube description is over 5000 characters");
-  if (instagramCaption.length > LIMITS.instagramCaption) warnings.push("Instagram caption is over 2200 characters");
+  if (allowsInstagram(project) && instagramCaption.length > LIMITS.instagramCaption) warnings.push("Instagram caption is over 2200 characters");
 
   return { youtubeTitle: title, youtubeDescription, instagramCaption, sources, credits, tags, pinnedComment: publish.pinnedComment?.trim() ?? "", warnings };
 };

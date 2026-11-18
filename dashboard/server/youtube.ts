@@ -178,11 +178,11 @@ export async function uploadVideo(root: string, input: UploadInput, onProgress: 
 }
 
 // Custom thumbnails need a phone-verified channel; failure here is a warning, not an error.
-export async function setThumbnail(root: string, videoId: string, png: Buffer) {
+export async function setThumbnail(root: string, videoId: string, image: Buffer, type = "image/png") {
   const r = await fetch(`https://www.googleapis.com/upload/youtube/v3/thumbnails/set?videoId=${videoId}&uploadType=media`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${await accessToken(root)}`, "Content-Type": "image/png" },
-    body: new Uint8Array(png),
+    headers: { Authorization: `Bearer ${await accessToken(root)}`, "Content-Type": type },
+    body: new Uint8Array(image),
   });
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error?.message ?? `HTTP ${r.status}`);
 }

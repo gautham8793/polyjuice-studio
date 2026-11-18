@@ -199,9 +199,17 @@ each scene for the post text (it isn't drawn). Beats add one `widget`:
 | `funnel` | narrowing numbers (2,308 → 1,724 → 948) | `rows: [{label, value, cue?, tone?}]` |
 | `counter` | 1–2 big numbers that count up | `items: [{value, prefix?, suffix?, decimals?, label, cue?, tone?}]` |
 | `ticker` | a market move | `trend: "down"/"up"`, `label?`, `cue?`, `items?: [{label: "NVDA", change: -9.3, cue?}]` |
-| `compare` | two values as bars (33 of 41, 10% vs 16%) | `unit?`, `items: [{label, value, max?, cue?, tone?}]` |
+| `compare` | two values as bars (33 of 41, 10% vs 16%) | `prefix?`, `unit?`, `decimals?`, `items: [{label, value, max?, cue?, tone?}]` |
 | `terminal` | code / commands typing | `title?`, `lines: [{text, cue?, tone?}]` |
 | `checklist` | ticked boxes per column (≤ 25 boxes) | `columns: [{label, done, total, cue?, tone?}]` |
+| `linechart` | real daily (or quarterly) data, two lines on one plot, each on its own scale | `labels?` (axis text per date, e.g. `Q3 '25`), `dates`, `series: [{label, values, tone?, decimals?, suffix?}]`, `cue?`, `draw?` (frames), `from?`, `step?`, `revealTo?` / `revealFrom?`, `markers?: [{date, label}]`, `note?` |
+| `pathschart` | log-scale history to a peak, then past falls replayed from it as dashed paths (not a forecast) | `dates`, `series` (history first), `baseDate`, `paths: [{label, days, values, cue?, color?}]`, `draw?`, `step?`, `note?` |
+| `logos` | companies named in the narration (logo on a white tile each, popping in on its name) + one optional big number | `title?`, `items: [{name, src: "library/logos/<file>", cue?}]`, `total?` (one big number) or `totals?` (2–3 side by side), each `{value, prefix?, suffix?, decimals?, label, cue?, tone?, text?}` (`text` shows as-is, e.g. `$70–78`) — logos from Wikimedia Commons, recorded in `library/logos/sources.json` |
+| `pricetag` | a new price vs an old one (valuation, price hike) | `was: {text, label?, cue?}` (struck through on cue), `now: {value, from?, prefix?, suffix?, decimals?, label, cue?}` (counts up from `from`), `note?` |
+| `pie` | a share of a whole (4.6% of a company sold) | `value` (percent), `label`, `center?` (text in the middle), `cue?`, `note?`, `tone?` |
+| `circles` | one thing as a share of a much bigger whole (Anthropic vs India's economy), circles sized by area | `title?`, `outer: {label, value, cue?}`, `inner: {label, value, share (0–1), note?, cue?, tone?}` |
+| `mapfill` | a share of a country (Anthropic = 38% of India's GDP): the official India outline fills from the bottom to exactly that share of its area | `map: "india"`, `share` (0–1), `whole: {label, value, cue?}`, `part: {label, value, note?, cue?, tone?}`, `title?` — outline built by `tools/make_map_fill.py india`; credit DataMeet (CC BY 4.0) in the description |
+| `stocks` | share price since the IPO (Rivian, Alibaba), one mini chart each over a dashed IPO-price line | `items: [{label, ticker?, ipo, ipoLabel?, dates, values, cue?, prefix?}]`, `note?` — real closes only, source in research.md |
 
 **Never show the same information twice on screen.** The headline (`onScreenText`) gives the
 context ("AI HACKING IS *CHEAP*", "WHY VOTERS ARE *ANGRY*"); the widget carries the numbers and
@@ -212,6 +220,11 @@ typing before the scene ends (not on the final word).
 `tone`: `accent` (yellow, default) · `danger` (red) · `up` (green) · `neutral`. Cue words pop each
 part in; pick cues in the first two-thirds of the narration so the last part stays readable, or
 add `"hold": 0.5` to the scene. A `map` scene (India) also works between beats.
+
+**The Anthropic IPO (series):** a daily series on the newsroom template with its own theme
+(`anthropic-ipo`). Start each episode with `python3 projects/_series/anthropic-ipo/new_episode.py --episode "<name>"`
+and follow `projects/_series/anthropic-ipo/README.md` (numbering, look, widgets, images, publish text).
+Newsroom series fields: `news.day` (DAY badge), `news.episode`, `news.kicker`, `news.dim: "strong"`.
 
 ## 2. Script rules (shorts, 9:16)
 

@@ -43,7 +43,7 @@ export const PublishCard: React.FC<Props> = ({ slug, render, onPublished }) => {
   const ig = pre.instagram;
   const ytReady = yt.status.connected && yt.status.ok;
   const sendYoutube = toYoutube && ytReady && (!yt.published || again);
-  const sendInstagram = toInstagram && ig.ready && (!ig.published || again);
+  const sendInstagram = ig.allowed && toInstagram && ig.ready && (!ig.published || again);
   const job = pre.job;
 
   const publish = async () => {
@@ -107,6 +107,7 @@ export const PublishCard: React.FC<Props> = ({ slug, render, onPublished }) => {
             )}
           </span>
         </label>
+        {ig.allowed && (
         <label className={`destination ${ig.ready ? "" : "off"}`}>
           <input type="checkbox" checked={toInstagram && ig.ready} disabled={!ig.ready || running} onChange={(e) => setToInstagram(e.target.checked)} />
           <span>
@@ -120,6 +121,7 @@ export const PublishCard: React.FC<Props> = ({ slug, render, onPublished }) => {
             )}
           </span>
         </label>
+        )}
         {(yt.published || ig.published) && (
           <label className="again small">
             <input type="checkbox" checked={again} onChange={(e) => setAgain(e.target.checked)} disabled={running} /> Upload again (makes a second copy)
