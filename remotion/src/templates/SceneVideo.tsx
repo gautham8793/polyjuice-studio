@@ -46,8 +46,10 @@ export const COMPOSITION_FOR_TEMPLATE: Record<string, string> = {
 };
 
 // Vertical (9:16) cinematic videos — Shorts cut from a long-form one — use their own composition.
-export const compositionFor = (project: Pick<Project, "template" | "format">) =>
-  (project.template === "cinematic" || project.template === "documentary") && project.format?.startsWith("short")
+export const compositionFor = (project: Pick<Project, "template" | "format" | "cut">) =>
+  project.cut === "desk"
+    ? "DeskCut"
+    : (project.template === "cinematic" || project.template === "documentary") && project.format?.startsWith("short")
     ? `${COMPOSITION_FOR_TEMPLATE[project.template]}Vertical`
     : (COMPOSITION_FOR_TEMPLATE[project.template] ?? "Listicle");
 

@@ -2,6 +2,8 @@ import { Player, type PlayerRef } from "@remotion/player";
 import { forwardRef } from "react";
 import { FPS, frameSize, SceneVideo, videoDurationInFrames, type VideoProps } from "../../remotion/src/templates/SceneVideo";
 import type { Brand, Project, Timeline } from "../../remotion/src/types";
+import { DeskCut } from "../../remotion/src/desk/DeskCut";
+import { OUT_DURATION as DESK_DURATION } from "../../remotion/src/desk/remap-data";
 
 type Props = { project: Project; timeline: Timeline; projectPath: string; brand: Brand };
 
@@ -17,9 +19,9 @@ export const Preview = forwardRef<PlayerRef, Props>(({ project, timeline, projec
   return (
     <Player
       ref={ref}
-      component={SceneVideo}
+      component={project.cut === "desk" ? (DeskCut as React.FC<VideoProps>) : SceneVideo}
       inputProps={inputProps}
-      durationInFrames={Math.max(1, videoDurationInFrames(timeline))}
+      durationInFrames={project.cut === "desk" ? Math.round(DESK_DURATION * FPS) : Math.max(1, videoDurationInFrames(timeline))}
       fps={FPS}
       compositionWidth={width}
       compositionHeight={height}

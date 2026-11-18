@@ -336,6 +336,7 @@ export type Project = {
   title: string;
   publish?: Publish;
   template: string;
+  cut?: "desk"; // a hand-built one-camera cut (remotion/src/desk) rendered instead of the template
   format?: string; // "short-9x16" (Shorts / Reels) or "long-16x9" (YouTube long-form)
   style: "photo-mix" | "illustrated";
   stylePreset?: string; // illustrated: key in library/characters/styles.json

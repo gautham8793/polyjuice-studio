@@ -3,6 +3,8 @@ import { ChannelBanner } from "./brand/ChannelBanner";
 import { SetupTest } from "./SetupTest";
 import { DOC_SAMPLE_FRAMES, DocSample, docTimeline, VOICE_FILE, type DocSampleProps } from "./templates/documentary/DocSample";
 import { FontBoard } from "./templates/documentary/FontBoard";
+import { DeskCut } from "./desk/DeskCut";
+import { OUT_DURATION as DESK_DURATION } from "./desk/remap-data";
 import { calculateVideoMetadata, FPS, SceneVideo, type VideoProps } from "./templates/SceneVideo";
 import type { Brand, Project, Timeline } from "./types";
 
@@ -105,6 +107,16 @@ export const Root: React.FC = () => {
       <Composition id="DocSample" component={DocSample} width={1920} height={1080} fps={30} durationInFrames={DOC_SAMPLE_FRAMES} defaultProps={{}} calculateMetadata={withDocVoice} />
       <Composition id="DocFontBoard" component={FontBoard} width={1920} height={1080} fps={30} durationInFrames={1} />
       <Composition id="DocSampleVertical" component={DocSample} width={1080} height={1920} fps={30} durationInFrames={DOC_SAMPLE_FRAMES} defaultProps={{}} calculateMetadata={withDocVoice} />
+      {/* One-camera desk cut (project.cut = "desk"): hand-built world, voice + score + SFX pre-mixed in soundtrack.flac */}
+      <Composition
+        id="DeskCut"
+        component={DeskCut}
+        width={1920}
+        height={1080}
+        fps={FPS}
+        durationInFrames={Math.round(DESK_DURATION * FPS)}
+        defaultProps={sample("2026-11-ai-week-three-headlines-continuous")}
+      />
       <Composition
         id="ChannelBanner"
         component={ChannelBanner}
