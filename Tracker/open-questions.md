@@ -19,3 +19,13 @@
 | # | Question | Proposal | Status |
 |---|---|---|---|
 | Q10 | Temple full film: is the expanded narration and provisional hook A approved for production? | Review the 43-scene / 1,138-word draft in the dashboard Script tab; three hook alternatives are in `projects/2026-11-temple-brain-blood-flow/script.md`. Owner approval is recorded in the dashboard before images, voice, music or renders. | Pending owner script review — 8 Nov 2026 |
+
+## Second channel (gamer87, GTA 6) — 19 November 2026
+
+| # | Question | Proposal | Status |
+|---|---|---|---|
+| Q11 | What exactly does Rockstar's current video policy allow (monetization, trailer clips, length)? | Read it on rockstargames.com before the first upload; quote the relevant lines in `PUBLISHING-gaming.md` | Pending — check before first upload |
+| Q12 | Where does raw PS5 footage live (5–8 GB per hour)? | Mac internal disk at first, an external SSD once it grows; only proxies and used trims go into the workspace | Proposed — 19 Nov 2026 |
+| Q13 | Which ElevenLabs voice is the channel voice? | Owner picks one from the Voice Library or Voice Design on the Starter plan; same voice for every video | Pending owner choice |
+| Q14 | Final channel name and handle? | Work as "gamer87" (id `gaming`); rename later is one config edit, settle before ~1,000 subscribers | Working name agreed — 19 Nov 2026 |
+| Q15 | Does gamer87 get its own private content repo and R2 storage now? | Not yet: a local workspace while solo; add its own content repo + R2 prefix when backup or a teammate is wanted | Proposed — 19 Nov 2026 |

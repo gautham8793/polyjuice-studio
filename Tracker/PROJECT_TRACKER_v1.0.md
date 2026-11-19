@@ -120,6 +120,7 @@ The studio has no numbered releases; these are the verified build milestones.
 - Thumbnail generation.
 - Higgsfield / ImagineArt integration; AI video when Figma Weave is on a paid plan.
 - Write the script-first stop into the `/new-video` skill.
+- Second channel gamer87 (GTA 6): multi-channel studio, gameplay footage, gaming templates, ElevenLabs for gaming only (DEC-19, proposed).
 
 ## 8. Decision register
 
@@ -144,6 +145,7 @@ The studio has no numbered releases; these are the verified build milestones.
 
 | DEC-17 | Temple product visual fidelity | Use the owner's downloaded Temple website assets for product shots. The five `web-*.png` files in `library/assets/Temple_Cerebral_Blood_Flow_Images/Downloaded assests/` are the actual product colour variants; match their rounded bean shape and the placement-reference portrait's upright temple position in generated illustrations. Figma file `uUQCDmP84YwhxS2JnUCkJO`: corrected illustrations in section `121:2`; original-product shots in `135:2`. Corrections saved under `out/temple-figma-2026-11-08/`. Applied to the dashboard video on 8 Nov 2026 via `apply_figma_visuals.py`; preview verified with original product variants, corrected illustrations and evidence graphics. | Agreed — 8 Nov 2026 |
 | DEC-18 | "The Anthropic IPO" daily series | Shorts numbered by calendar day from Day 1 = 10 Nov 2026 (roadshow launch); two videos on one day share the day number with different episode names (no "1/2"). Own theme `anthropic-ipo` (warm near-black, cream text, terracotta accent; Inter Tight / Newsreader / IBM Plex Mono — free fonts, not Anthropic's), newsroom template with a DAY badge, warm-light AI images, spoken daily-tracking outro, dashboard folder "The Anthropic IPO". Series guide + `new_episode.py` in `projects/_series/anthropic-ipo/`. A long-form video may follow | Agreed — 10 Nov 2026 |
+| DEC-19 | Second channel: gamer87 (GTA 6) | One studio, several channels: each channel is its own content workspace with `channel.json` (name, handle, rules, allowed voices and templates, budget), a channel switcher in the dashboard, per-channel publish tokens. gamer87 (working name, id `gaming`): own PS5 gameplay as the main visual (ingest tool, footage library, clip scenes), gaming templates (news, list first), confirmed / reported / rumour source tiers, `PUBLISHING-gaming.md`. ElevenLabs voice for the gaming channel only, enforced by the server, with Kokoro drafts, a cache and a monthly credit budget. Polyjuice stays unchanged. Full design: `docs/decisions/2026-11-19_gaming-channel-design.md` | Proposed — 19 Nov 2026 |
 
 ## 9. Known gaps and risks
 
@@ -237,6 +239,7 @@ Status as of 7 November 2026 (from the dashboard: Uploaded is the owner's mark; 
 | 9 Nov 2026 | First teammate: **Prakash Sivam** (member id `prakash`, editor + reviewer) added in `members.json` (content commit `db5ea79`); GitHub `jonrhaeghar` invited with write access to `polyjuice-channel` and `polyjuice-studio` (pending acceptance). Team mode is now on: editing a video needs Edit (check out). Still to do: Prakash's own R2 token, keys sent privately, first Windows run of `setup.ps1`. Second friend: parked. |
 | 9 Nov 2026 | `setup.ps1` completed on Prakash's PC (Windows on ARM, first real Windows run) after fixes found there: Smart App Control had to be turned off (it blocked Git's libcurl); sign-in via `gh auth login` + `gh auth setup-git` (Git's password prompt can't work); x64 Python on ARM PCs (torch / spaCy parts / gRPC have no Windows ARM wheels), found by its build (`sysconfig`) in the standard install folders; PowerShell 5.1 silenced-stderr quirk; whisper.cpp Windows builds come from build releases, native ARM build on ARM (`644d11b`…`7a38751`). Next: his key files, first Sync. |
 | 9 Nov 2026 | **Milestone: first teammate live.** Prakash's first Sync completed on his Windows ARM PC and everything works (owner confirmed). His key copy `secrets/for-prakash/` deleted from the owner's Mac. |
+| 19 Nov 2026 | DEC-19 proposed: second channel **gamer87** (working name) for GTA 6 videos, owner solo, Shorts + long-form, own PS5 footage, ElevenLabs voice for the gaming channel only with a credit budget. Design `docs/decisions/2026-11-19_gaming-channel-design.md`; Q11–Q15 added. Nothing built yet. |
 
 ## 14. Tracker created — 7 November 2026
 
